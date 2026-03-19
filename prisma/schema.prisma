@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  RESCHEDULED
+  NO_SHOW
+}
+
+enum AppointmentSource {
+  WHATSAPP
+  WEB
+  MANUAL
+  DEMO
+}
+
+enum ConversationDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum LeadStatus {
+  NEW
+  QUALIFIED
+  PENDING_FOLLOW_UP
+  CONVERTED
+  CLOSED
+}
+
+model Contact {
+  id                   String                @id @default(cuid())
+  name                 String
+  phone                String                @unique
+  email                String?
+  notes                String?
+  conversationState    String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  appointments         Appointment[]
+  conversationMessages ConversationMessage[]
+  leads                Lead[]
+}
+
+model Service {
+  id              String        @id @default(cuid())
+  name            String
+  description     String?
+  durationMinutes Int           @default(60)
+  isActive        Boolean       @default(true)
+  appointments    Appointment[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Appointment {
+  id               String            @id @default(cuid())
+  contactId        String
+  serviceId        String?
+  appointmentStart DateTime
+  appointmentEnd   DateTime
+  status           AppointmentStatus @default(SCHEDULED)
+  source           AppointmentSource @default(DEMO)
+  notes            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  contact          Contact           @relation(fields: [contactId], references: [id])
+  service          Service?          @relation(fields: [serviceId], references: [id])
+
+  @@index([contactId])
+  @@index([serviceId])
+  @@index([appointmentStart, appointmentEnd])
+}
+
+model BusinessHour {
+  id        String   @id @default(cuid())
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dayOfWeek])
+}
+
+model BlockedSlot {
+  id          String   @id @default(cuid())
+  startDateTime DateTime
+  endDateTime DateTime
+  reason      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([startDateTime, endDateTime])
+}
+
+model ConversationMessage {
+  id                String                @id @default(cuid())
+  contactId         String
+  channel           String
+  direction         ConversationDirection
+  message           String
+  providerMessageId String?
+  createdAt         DateTime              @default(now())
+  contact           Contact               @relation(fields: [contactId], references: [id])
+
+  @@index([contactId, createdAt])
+}
+
+model Lead {
+  id        String     @id @default(cuid())
+  contactId String
+  status    LeadStatus @default(NEW)
+  interest  String?
+  notes     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  contact   Contact    @relation(fields: [contactId], references: [id])
+
+  @@index([contactId])
+}

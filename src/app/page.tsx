@@ -1,66 +1,84 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+const highlights = [
+  'Agendar, reagendar y cancelar citas por WhatsApp.',
+  'Panel interno con lista de citas y calendario simple.',
+  'Servicios demo con duración de 1 hora.',
+  'Horario configurable de 9:00 AM a 9:00 PM.',
+  'Base lista para integrar Twilio Sandbox + OpenAI + Neon.',
+];
 
 export default function Home() {
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main style={{ minHeight: '100vh', background: '#07111f', color: '#f3f7ff' }}>
+      <section
+        style={{
+          maxWidth: 1100,
+          margin: '0 auto',
+          padding: '96px 24px 72px',
+        }}
+      >
+        <div
+          style={{
+            display: 'inline-flex',
+            padding: '8px 14px',
+            borderRadius: 999,
+            background: 'rgba(115, 149, 255, 0.14)',
+            border: '1px solid rgba(115, 149, 255, 0.3)',
+            marginBottom: 20,
+            fontSize: 14,
+          }}
+        >
+          Dental La Molar · Assistant Demo
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <h1
+          style={{
+            fontSize: 'clamp(2.8rem, 7vw, 5.2rem)',
+            lineHeight: 0.95,
+            margin: '0 0 20px',
+            maxWidth: 800,
+          }}
+        >
+          Demo base del asistente dental con agenda inteligente.
+        </h1>
+
+        <p
+          style={{
+            maxWidth: 760,
+            color: '#b5c0d8',
+            fontSize: 18,
+            lineHeight: 1.7,
+            margin: '0 0 28px',
+          }}
+        >
+          Esta primera fase deja lista la base técnica para construir un asistente de IA que
+          atienda prospectos por WhatsApp, valide disponibilidad real y convierta conversaciones
+          en citas, sin andar inventando horarios como si fueran horóscopos.
+        </p>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 16,
+            marginTop: 32,
+          }}
+        >
+          {highlights.map((item) => (
+            <article
+              key={item}
+              style={{
+                padding: 20,
+                borderRadius: 22,
+                background: 'rgba(12, 23, 42, 0.88)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+              }}
+            >
+              <p style={{ margin: 0, color: '#eaf1ff', lineHeight: 1.6 }}>{item}</p>
+            </article>
+          ))}
         </div>
-      </main>
-    </div>
+      </section>
+    </main>
   );
 }
