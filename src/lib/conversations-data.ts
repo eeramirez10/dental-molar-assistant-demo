@@ -6,6 +6,12 @@ export async function getConversationsData() {
       conversationMessages: {
         orderBy: { createdAt: 'asc' },
       },
+      appointments: {
+        include: {
+          service: true,
+        },
+        orderBy: { appointmentStart: 'asc' },
+      },
     },
     orderBy: { updatedAt: 'desc' },
   });
@@ -14,6 +20,19 @@ export async function getConversationsData() {
     id: contact.id,
     name: contact.name,
     phone: contact.phone,
+    appointments: contact.appointments.map((appointment) => ({
+      id: appointment.id,
+      status: appointment.status,
+      appointmentStart: appointment.appointmentStart.toISOString(),
+      appointmentEnd: appointment.appointmentEnd.toISOString(),
+      service: appointment.service
+        ? {
+            id: appointment.service.id,
+            name: appointment.service.name,
+            durationMinutes: appointment.service.durationMinutes,
+          }
+        : null,
+    })),
     messages: contact.conversationMessages.map((message) => ({
       id: message.id,
       direction: message.direction,
