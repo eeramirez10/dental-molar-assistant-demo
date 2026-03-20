@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Geist, Geist_Mono } from 'next/font/google';
+
+import SidebarNav from '@/app/sidebar-nav';
 
 import './globals.css';
 
@@ -19,10 +22,10 @@ export const metadata: Metadata = {
 };
 
 const navItems = [
-  { href: '#overview', label: 'Dashboard', icon: '◔' },
-  { href: '#appointments', label: 'Appointments', icon: '▦' },
-  { href: '#booking', label: 'New Booking', icon: '＋' },
-  { href: '#services', label: 'Services', icon: '✦' },
+  { href: '/', label: 'Dashboard' },
+  { href: '/appointments', label: 'Appointments' },
+  { href: '/booking', label: 'New Booking' },
+  { href: '/services', label: 'Services' },
 ];
 
 export default function RootLayout({
@@ -46,9 +49,9 @@ export default function RootLayout({
 
               <nav className="topnav" aria-label="Navegación principal superior">
                 {navItems.map((item) => (
-                  <a key={item.href} href={item.href}>
+                  <Link key={item.href} href={item.href}>
                     {item.label}
-                  </a>
+                  </Link>
                 ))}
               </nav>
             </div>
@@ -58,53 +61,7 @@ export default function RootLayout({
             <aside id="sidebarMenu" className="volt-sidebar" aria-label="Sidebar navigation">
               <div className="volt-sidebar__inner">
                 <ul className="volt-nav">
-                  <li className="volt-nav__item volt-nav__brand">
-                    <a href="#overview" className="volt-nav__link volt-nav__link--brand">
-                      <span className="volt-sidebar__logo">🦷</span>
-                      <span className="volt-sidebar__brand-text">Volt Overview</span>
-                    </a>
-                  </li>
-
-                  {navItems.map((item, index) => (
-                    <li key={item.href} className={`volt-nav__item ${index === 0 ? 'is-active' : ''}`}>
-                      <a href={item.href} className="volt-nav__link">
-                        <span className="volt-nav__icon" aria-hidden="true">
-                          {item.icon}
-                        </span>
-                        <span className="volt-nav__text">{item.label}</span>
-                      </a>
-                    </li>
-                  ))}
-
-                  <li className="volt-nav__divider" />
-
-                  <li className="volt-nav__item">
-                    <a href="#services" className="volt-nav__link">
-                      <span className="volt-nav__icon" aria-hidden="true">
-                        ⌘
-                      </span>
-                      <span className="volt-nav__text">Documentation</span>
-                      <span className="volt-badge">v1.4</span>
-                    </a>
-                  </li>
-
-                  <li className="volt-nav__item">
-                    <a href="#booking" className="volt-nav__link">
-                      <span className="volt-nav__icon" aria-hidden="true">
-                        ⚙
-                      </span>
-                      <span className="volt-nav__text">Settings</span>
-                    </a>
-                  </li>
-
-                  <li className="volt-nav__item volt-nav__item--cta">
-                    <a href="#booking" className="volt-upgrade-btn">
-                      <span className="volt-nav__icon" aria-hidden="true">
-                        ✨
-                      </span>
-                      <span>Upgrade to Pro</span>
-                    </a>
-                  </li>
+                  <SidebarNav />
                 </ul>
               </div>
             </aside>

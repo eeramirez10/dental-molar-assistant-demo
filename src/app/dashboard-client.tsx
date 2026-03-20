@@ -35,6 +35,7 @@ type Props = {
     service: ServiceItem;
     slots: SlotItem[];
   }>;
+  page?: 'overview' | 'appointments' | 'booking' | 'services';
 };
 
 function badgeColor(status: string) {
@@ -92,6 +93,7 @@ export default function DashboardClient({
   initialAppointments,
   services,
   initialAvailabilityByService,
+  page = 'overview',
 }: Props) {
   const [appointments, setAppointments] = useState(initialAppointments);
   const [availabilityByService] = useState(initialAvailabilityByService);
@@ -276,28 +278,30 @@ export default function DashboardClient({
           </div>
         </div>
 
-        <section id="overview" style={{ marginBottom: 22 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 16 }}>
-            {[
-              { label: 'Total Appointments', value: appointments.length, tone: '#2563eb' },
-              { label: 'Active Services', value: services.length, tone: '#059669' },
-              { label: 'Visible Slots', value: slotOptions.length, tone: '#d97706' },
-              { label: 'Filtered Results', value: filteredAppointments.length, tone: '#7c3aed' },
-            ].map((item) => (
-              <article key={item.label} style={{ ...cardStyle(), padding: 20 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: `${item.tone}18`, marginBottom: 14 }} />
-                <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>{item.label}</p>
-                <strong style={{ fontSize: 30, color: '#111827' }}>{item.value}</strong>
-              </article>
-            ))}
-          </div>
-        </section>
+        {page === 'overview' ? (
+          <section id="overview" style={{ marginBottom: 22 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 16 }}>
+              {[
+                { label: 'Total Appointments', value: appointments.length, tone: '#2563eb' },
+                { label: 'Active Services', value: services.length, tone: '#059669' },
+                { label: 'Visible Slots', value: slotOptions.length, tone: '#d97706' },
+                { label: 'Filtered Results', value: filteredAppointments.length, tone: '#7c3aed' },
+              ].map((item) => (
+                <article key={item.label} style={{ ...cardStyle(), padding: 20 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: `${item.tone}18`, marginBottom: 14 }} />
+                  <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>{item.label}</p>
+                  <strong style={{ fontSize: 30, color: '#111827' }}>{item.value}</strong>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {message ? <div style={{ marginBottom: 18, padding: 14, borderRadius: 14, background: 'rgba(5,150,105,0.08)', border: '1px solid rgba(5,150,105,0.18)', color: '#065f46' }}>{message}</div> : null}
         {error ? <div style={{ marginBottom: 18, padding: 14, borderRadius: 14, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#991b1b' }}>{error}</div> : null}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 20, alignItems: 'start' }}>
-          <section id="appointments" style={cardStyle()}>
+        <div style={{ display: 'grid', gridTemplateColumns: page === 'overview' ? '1.35fr 1fr' : '1fr', gap: 20, alignItems: 'start' }}>
+          {(page === 'overview' || page === 'appointments') ? <section id="appointments" style={cardStyle()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, marginBottom: 18, flexWrap: 'wrap', alignItems: 'end' }}>
               <div>
                 <h2 style={{ fontSize: 22, marginBottom: 6 }}>Appointments</h2>
@@ -368,10 +372,10 @@ export default function DashboardClient({
                 ))
               )}
             </div>
-          </section>
+          </section> : null}
 
-          <div style={{ display: 'grid', gap: 20 }}>
-            <section id="booking" style={cardStyle()}>
+          {(page === 'overview' || page === 'booking' || page === 'services') ? <div style={{ display: 'grid', gap: 20 }}>
+            {(page === 'overview' || page === 'booking') ? <section id="booking" style={cardStyle()}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap', marginBottom: 18 }}>
                 <div>
                   <h2 style={{ fontSize: 22, marginBottom: 6 }}>New Booking</h2>
@@ -420,9 +424,9 @@ export default function DashboardClient({
                   {submitting ? 'Saving...' : 'Create appointment'}
                 </button>
               </div>
-            </section>
+            </section> : null}
 
-            <section id="services" style={cardStyle()}>
+            {(page === 'overview' || page === 'services') ? <section id="services" style={cardStyle()}>
               <h2 style={{ fontSize: 22, marginBottom: 6 }}>Services</h2>
               <p style={{ color: 'var(--muted)', lineHeight: 1.6, marginBottom: 18 }}>
                 Quick selection cards with preview slots for the next days.
@@ -455,8 +459,8 @@ export default function DashboardClient({
                   </article>
                 ))}
               </div>
-            </section>
-          </div>
+            </section> : null}
+          </div> : null}
         </div>
       </section>
     </main>

@@ -3,7 +3,7 @@ import { getDashboardData } from '@/lib/dashboard-data';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Home() {
+export default async function AppointmentsPage() {
   const data = await getDashboardData();
 
   return (
@@ -11,7 +11,7 @@ export default async function Home() {
       initialAppointments={data.appointments}
       services={data.services}
       initialAvailabilityByService={data.availabilityByService}
-      page="overview"
+      page="appointments"
     />
   );
 }
