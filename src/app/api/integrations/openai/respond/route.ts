@@ -4,15 +4,35 @@ import { ConversationDirection } from '@prisma/client';
 
 import { runDentalAssistant } from '@/lib/ai/dental-assistant';
 import { appendConversationMessage } from '@/lib/conversation-actions';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
   const payload = await request.json();
-  const contactId = String(payload.contactId ?? '');
+  const contactIdInput = String(payload.contactId ?? '');
+  const phone = String(payload.phone ?? '').trim();
   const text = String(payload.text ?? '');
   const persistInbound = payload.persistInbound !== false;
 
-  if (!contactId || !text) {
-    return NextResponse.json({ error: 'contactId y text son requeridos.' }, { status: 400 });
+  if (!text || (!phone && !contactIdInput)) {
+    return NextResponse.json(
+      { error: 'Debes enviar text y phone (preferido) o contactId.' },
+      { status: 400 },
+    );
+  }
+
+  let contactId = contactIdInput;
+
+  if (phone) {
+    const contact = await prisma.contact.upsert({
+      where: { phone },
+      update: {},
+      create: {
+        name: payload.name ? String(payload.name) : 'Paciente',
+        phone,
+      },
+    });
+
+    contactId = contact.id;
   }
 
   if (persistInbound) {
@@ -20,10 +40,11 @@ export async function POST(request: Request) {
       contactId,
       direction: ConversationDirection.INBOUND,
       message: text,
+      channel: 'whatsapp',
     });
   }
 
   const result = await runDentalAssistant(contactId, text);
 
-  return NextResponse.json({ data: result });
+  return NextResponse.json({ data: { ...result, contactId } });
 }
