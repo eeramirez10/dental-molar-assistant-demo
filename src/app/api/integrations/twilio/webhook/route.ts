@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 
 import { ConversationDirection } from '@prisma/client';
 
-import { appendConversationMessage, simpleAssistantReply } from '@/lib/conversation-actions';
+import { runDentalAssistant } from '@/lib/ai/dental-assistant';
+import { appendConversationMessage } from '@/lib/conversation-actions';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
@@ -32,9 +33,9 @@ export async function POST(request: Request) {
     channel: 'whatsapp',
   });
 
-  const reply = await simpleAssistantReply(contact.id, text);
+  const result = await runDentalAssistant(contact.id, text);
 
-  const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${reply}</Message></Response>`;
+  const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${result.reply}</Message></Response>`;
 
   return new NextResponse(twiml, {
     status: 200,
