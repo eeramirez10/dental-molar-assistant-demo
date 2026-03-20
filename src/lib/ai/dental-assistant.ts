@@ -21,6 +21,23 @@ type ToolCall = {
   type: string;
 };
 
+function extractHour(text: string) {
+  const match = text.match(/(?:a las|alas|a la|ala)\s*(\d{1,2})(?::(\d{2}))?/i);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = match[2] ? Number(match[2]) : 0;
+  if (Number.isNaN(hour) || hour > 23) return null;
+  return { hour, minute };
+}
+
+function inferIntent(text: string) {
+  const normalized = text.toLowerCase();
+  if (normalized.includes('cancel')) return 'cancel';
+  if (normalized.includes('reagend') || normalized.includes('mover')) return 'reschedule';
+  if (normalized.includes('agendar') || normalized.includes('cita')) return 'schedule';
+  return 'unknown';
+}
+
 async function createResponse(body: Record<string, unknown>) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -74,12 +91,97 @@ export async function runDentalAssistant(contactId: string, userText: string) {
     orderBy: { name: 'asc' },
   });
 
+  const normalizedText = userText.toLowerCase();
+  const inferredService = serviceCatalog.find((service) => {
+    const name = service.name.toLowerCase();
+    return normalizedText.includes(name) || name.split(' ').some((part) => part.length > 4 && normalizedText.includes(part));
+  });
+
+  const inferredHour = extractHour(userText);
+  const inferredIntent = inferIntent(userText);
+  const inferredDate = (() => {
+    const base = new Date();
+    if (normalizedText.includes('mañana')) {
+      const tomorrow = new Date(base);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      if (inferredHour) tomorrow.setHours(inferredHour.hour, inferredHour.minute, 0, 0);
+      return tomorrow;
+    }
+    if (normalizedText.includes('hoy')) {
+      const today = new Date(base);
+      if (inferredHour) today.setHours(inferredHour.hour, inferredHour.minute, 0, 0);
+      return today;
+    }
+    return null;
+  })();
+
+  if (inferredIntent === 'schedule' && inferredService && inferredDate) {
+    const from = new Date(inferredDate);
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(from);
+    to.setDate(to.getDate() + 1);
+
+    try {
+      const slots = await listAvailableSlots({
+        serviceId: inferredService.id,
+        from,
+        to,
+      });
+
+      const exactSlot = inferredHour
+        ? slots.find((slot) => {
+            const start = new Date(slot.start);
+            return start.getHours() === inferredHour.hour && start.getMinutes() === inferredHour.minute;
+          })
+        : null;
+
+      if (exactSlot) {
+        const appointment = await createAppointmentFromConversation(contactId, {
+          contact: {
+            name: contact.name,
+            phone: contact.phone,
+            email: contact.email ?? undefined,
+          },
+          serviceId: inferredService.id,
+          appointmentStart: new Date(exactSlot.start),
+          notes: 'Creada por preprocesamiento determinista',
+        });
+
+        const reply = `Perfecto. Ya quedó agendada tu cita de ${appointment.service?.name ?? inferredService.name} para ${new Date(appointment.appointmentStart).toLocaleString('es-MX')}.`;
+
+        await appendConversationMessage({
+          contactId,
+          direction: ConversationDirection.OUTBOUND,
+          message: reply,
+        });
+
+        return { reply, mode: 'deterministic-schedule' as const };
+      }
+
+      if (slots.length > 0) {
+        const options = slots.slice(0, 3).map((slot) => new Date(slot.start).toLocaleString('es-MX')).join(', ');
+        const reply = `No encontré libre exactamente ese horario para ${inferredService.name}, pero sí tengo estas opciones: ${options}. ¿Cuál prefieres?`;
+
+        await appendConversationMessage({
+          contactId,
+          direction: ConversationDirection.OUTBOUND,
+          message: reply,
+        });
+
+        return { reply, mode: 'deterministic-slots' as const };
+      }
+    } catch {
+      // Si falla el flujo determinista, dejamos que OpenAI tome el control.
+    }
+  }
+
   const instructions = [
     'Eres el asistente de Dental La Molar.',
     'Responde siempre en español.',
     'Ayudas a agendar, reagendar y cancelar citas.',
     'Usa tools cuando necesites operar agenda o consultar contexto.',
     'Si el usuario ya menciona servicio y horario, intenta consultar disponibilidad o crear la cita.',
+    'Presta mucha atención a inferredIntent, inferredService e inferredDateTime cuando vengan en el contexto.',
     'Si el usuario pide reagendar o cancelar, intenta usar las tools correspondientes.',
     'Si falta información, pide solo lo necesario y de forma breve.',
     'No inventes disponibilidad ni confirmaciones.',
@@ -180,6 +282,14 @@ export async function runDentalAssistant(contactId: string, userText: string) {
                 createdAt: message.createdAt.toISOString(),
               })),
               userMessage: userText,
+              inferredIntent,
+              inferredService: inferredService
+                ? {
+                    id: inferredService.id,
+                    name: inferredService.name,
+                  }
+                : null,
+              inferredDateTime: inferredDate ? inferredDate.toISOString() : null,
             }),
           },
         ],
