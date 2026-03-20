@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { Geist, Geist_Mono } from 'next/font/google';
 
 import SidebarNav from '@/app/sidebar-nav';
@@ -21,13 +20,6 @@ export const metadata: Metadata = {
   description: 'Panel demo para agenda dental con citas, disponibilidad y flujo interactivo.',
 };
 
-const navItems = [
-  { href: '/', label: 'Dashboard' },
-  { href: '/appointments', label: 'Appointments' },
-  { href: '/booking', label: 'New Booking' },
-  { href: '/services', label: 'Services' },
-];
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -47,13 +39,6 @@ export default function RootLayout({
                 </div>
               </div>
 
-              <nav className="topnav" aria-label="Navegación principal superior">
-                {navItems.map((item) => (
-                  <Link key={item.href} href={item.href}>
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
             </div>
           </header>
 
