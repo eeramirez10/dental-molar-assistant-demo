@@ -76,15 +76,48 @@ npm run db:seed
 npm run dev
 ```
 
-## Siguiente fase sugerida
+## Estado de Fase 2
 
-Fase 2: appointments core
+Fase 2: appointments core 🚧 en progreso
 
-- disponibilidad real por servicio y duración
-- reglas de validación de slots
-- creación, cancelación y reagendado de citas
-- servicios de dominio para agenda
-- endpoints/server actions para operar la agenda
+Implementado en esta fase:
+
+- servicio de dominio para disponibilidad de citas
+- validación de slots contra horario, bloqueos y traslapes
+- creación de citas con upsert de contacto por teléfono
+- cancelación de citas
+- reagendado de citas
+- endpoints API para disponibilidad y citas
+
+### Endpoints actuales
+
+- `GET /api/availability?serviceId=<id>&from=<iso>&to=<iso>`
+- `GET /api/appointments`
+- `POST /api/appointments`
+- `PATCH /api/appointments/:appointmentId`
+- `DELETE /api/appointments/:appointmentId`
+
+### Payload base para crear cita
+
+```json
+{
+  "contact": {
+    "name": "Paciente Demo",
+    "phone": "+5215555555555",
+    "email": "demo@example.com"
+  },
+  "serviceId": "<service-id>",
+  "appointmentStart": "2026-03-20T16:00:00.000Z",
+  "notes": "Primera visita"
+}
+```
+
+### Siguiente tramo recomendado de Fase 2
+
+- agregar tests del dominio de agenda
+- exponer servicios y catálogo desde API
+- crear panel básico para consumir estos endpoints
+- preparar integración con WhatsApp/OpenAI sobre este core
 
 ## Notas
 
