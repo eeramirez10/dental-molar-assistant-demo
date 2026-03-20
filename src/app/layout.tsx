@@ -19,10 +19,10 @@ export const metadata: Metadata = {
 };
 
 const navItems = [
-  { href: '#overview', label: 'Overview', icon: '🏠' },
-  { href: '#appointments', label: 'Appointments', icon: '📅' },
-  { href: '#booking', label: 'New Booking', icon: '➕' },
-  { href: '#services', label: 'Services', icon: '🦷' },
+  { href: '#overview', label: 'Dashboard', icon: '◔' },
+  { href: '#appointments', label: 'Appointments', icon: '▦' },
+  { href: '#booking', label: 'New Booking', icon: '＋' },
+  { href: '#services', label: 'Services', icon: '✦' },
 ];
 
 export default function RootLayout({
@@ -55,22 +55,57 @@ export default function RootLayout({
           </header>
 
           <div className="app-frame">
-            <aside className="sidebar" aria-label="Sidebar de navegación">
-              <div className="sidebar__card">
-                <p className="sidebar__eyebrow">Core Navigation</p>
-                <nav className="sidebar__nav">
-                  {navItems.map((item) => (
-                    <a key={item.href} href={item.href} className="sidebar__link">
-                      <span aria-hidden="true">{item.icon}</span>
-                      <span>{item.label}</span>
+            <aside id="sidebarMenu" className="volt-sidebar" aria-label="Sidebar navigation">
+              <div className="volt-sidebar__inner">
+                <ul className="volt-nav">
+                  <li className="volt-nav__item volt-nav__brand">
+                    <a href="#overview" className="volt-nav__link volt-nav__link--brand">
+                      <span className="volt-sidebar__logo">🦷</span>
+                      <span className="volt-sidebar__brand-text">Volt Overview</span>
                     </a>
-                  ))}
-                </nav>
-              </div>
+                  </li>
 
-              <div className="sidebar__card sidebar__card--muted">
-                <p className="sidebar__eyebrow">Workspace</p>
-                <p className="sidebar__text">Dental assistant demo with real appointments core, usable admin flow and UX inspired by Volt.</p>
+                  {navItems.map((item, index) => (
+                    <li key={item.href} className={`volt-nav__item ${index === 0 ? 'is-active' : ''}`}>
+                      <a href={item.href} className="volt-nav__link">
+                        <span className="volt-nav__icon" aria-hidden="true">
+                          {item.icon}
+                        </span>
+                        <span className="volt-nav__text">{item.label}</span>
+                      </a>
+                    </li>
+                  ))}
+
+                  <li className="volt-nav__divider" />
+
+                  <li className="volt-nav__item">
+                    <a href="#services" className="volt-nav__link">
+                      <span className="volt-nav__icon" aria-hidden="true">
+                        ⌘
+                      </span>
+                      <span className="volt-nav__text">Documentation</span>
+                      <span className="volt-badge">v1.4</span>
+                    </a>
+                  </li>
+
+                  <li className="volt-nav__item">
+                    <a href="#booking" className="volt-nav__link">
+                      <span className="volt-nav__icon" aria-hidden="true">
+                        ⚙
+                      </span>
+                      <span className="volt-nav__text">Settings</span>
+                    </a>
+                  </li>
+
+                  <li className="volt-nav__item volt-nav__item--cta">
+                    <a href="#booking" className="volt-upgrade-btn">
+                      <span className="volt-nav__icon" aria-hidden="true">
+                        ✨
+                      </span>
+                      <span>Upgrade to Pro</span>
+                    </a>
+                  </li>
+                </ul>
               </div>
             </aside>
 
