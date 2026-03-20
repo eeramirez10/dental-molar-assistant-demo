@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 
 import SidebarNav from '@/app/sidebar-nav';
+import Topbar from '@/app/topbar';
 
 import './globals.css';
 
@@ -38,7 +39,10 @@ export default function RootLayout({
               </div>
             </aside>
 
-            <div className="app-content">{children}</div>
+            <div className="app-content">
+              <Topbar />
+              {children}
+            </div>
           </div>
         </div>
       </body>

@@ -8,6 +8,7 @@ const navItems = [
   { href: '/appointments', label: 'Citas', icon: '▦' },
   { href: '/booking', label: 'Nueva cita', icon: '＋' },
   { href: '/services', label: 'Servicios', icon: '✦' },
+  { href: '/conversations', label: 'Conversaciones', icon: '☰' },
 ];
 
 export default function SidebarNav() {
