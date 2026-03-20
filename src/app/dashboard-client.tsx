@@ -260,19 +260,19 @@ export default function DashboardClient({
     <main style={{ minHeight: '100vh', color: 'var(--foreground)' }}>
       <section style={{ maxWidth: 1380, margin: '0 auto', padding: '4px 0 48px' }}>
         <div style={{ marginBottom: 18 }}>
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Dashboard / Overview</p>
+          <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Panel / Resumen</p>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'end' }}>
             <div>
               <h1 style={{ fontSize: 'clamp(2rem, 4vw, 2.9rem)', lineHeight: 1.05, marginBottom: 8 }}>
-                Overview
+                Resumen
               </h1>
               <p style={{ color: 'var(--muted)', maxWidth: 760, lineHeight: 1.7 }}>
-                Panel administrativo para la agenda de Dental La Molar, inspirado en el look & feel de Volt.
+                Panel administrativo para la agenda de Dental La Molar.
               </p>
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button onClick={fetchSlots} disabled={loadingSlots} style={{ ...softButtonStyle(), background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>
-                {loadingSlots ? 'Refreshing...' : 'Refresh availability'}
+                {loadingSlots ? 'Actualizando...' : 'Actualizar disponibilidad'}
               </button>
             </div>
           </div>
@@ -282,10 +282,10 @@ export default function DashboardClient({
           <section id="overview" style={{ marginBottom: 22 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 16 }}>
               {[
-                { label: 'Total Appointments', value: appointments.length, tone: '#2563eb' },
-                { label: 'Active Services', value: services.length, tone: '#059669' },
-                { label: 'Visible Slots', value: slotOptions.length, tone: '#d97706' },
-                { label: 'Filtered Results', value: filteredAppointments.length, tone: '#7c3aed' },
+                { label: 'Citas totales', value: appointments.length, tone: '#2563eb' },
+                { label: 'Servicios activos', value: services.length, tone: '#059669' },
+                { label: 'Slots visibles', value: slotOptions.length, tone: '#d97706' },
+                { label: 'Resultados filtrados', value: filteredAppointments.length, tone: '#7c3aed' },
               ].map((item) => (
                 <article key={item.label} style={{ ...cardStyle(), padding: 20 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 12, background: `${item.tone}18`, marginBottom: 14 }} />
@@ -304,17 +304,17 @@ export default function DashboardClient({
           {(page === 'overview' || page === 'appointments') ? <section id="appointments" style={cardStyle()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, marginBottom: 18, flexWrap: 'wrap', alignItems: 'end' }}>
               <div>
-                <h2 style={{ fontSize: 22, marginBottom: 6 }}>Appointments</h2>
-                <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>Manage scheduled, cancelled and rescheduled appointments.</p>
+                <h2 style={{ fontSize: 22, marginBottom: 6 }}>Citas</h2>
+                <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>Administra citas programadas, canceladas y reagendadas.</p>
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} style={inputStyle()}>
-                  <option value="ALL">All status</option>
-                  <option value="SCHEDULED">Scheduled</option>
-                  <option value="RESCHEDULED">Rescheduled</option>
-                  <option value="CANCELLED">Cancelled</option>
-                  <option value="CONFIRMED">Confirmed</option>
-                  <option value="COMPLETED">Completed</option>
+                  <option value="ALL">Todos los estatus</option>
+                  <option value="SCHEDULED">Programadas</option>
+                  <option value="RESCHEDULED">Reagendadas</option>
+                  <option value="CANCELLED">Canceladas</option>
+                  <option value="CONFIRMED">Confirmadas</option>
+                  <option value="COMPLETED">Completadas</option>
                 </select>
                 <input type="date" value={dateQuery} onChange={(event) => setDateQuery(event.target.value)} style={inputStyle()} />
               </div>
@@ -323,7 +323,7 @@ export default function DashboardClient({
             <div style={{ display: 'grid', gap: 14 }}>
               {filteredAppointments.length === 0 ? (
                 <div style={{ padding: 18, borderRadius: 14, background: 'var(--card-soft)', color: 'var(--muted)', border: '1px dashed var(--card-border)' }}>
-                  No appointments match the selected filters.
+                  No hay citas que coincidan con los filtros seleccionados.
                 </div>
               ) : (
                 filteredAppointments.map((appointment) => (
@@ -339,15 +339,15 @@ export default function DashboardClient({
                     </div>
 
                     <div style={{ display: 'grid', gap: 6, color: '#374151', marginBottom: 14 }}>
-                      <div><strong>Service:</strong> {appointment.service?.name ?? 'Sin servicio'}</div>
-                      <div><strong>Start:</strong> {format(new Date(appointment.appointmentStart), "dd/MM/yyyy '·' hh:mm a")}</div>
-                      <div><strong>End:</strong> {format(new Date(appointment.appointmentEnd), "dd/MM/yyyy '·' hh:mm a")}</div>
-                      {appointment.notes ? <div><strong>Notes:</strong> {appointment.notes}</div> : null}
+                      <div><strong>Servicio:</strong> {appointment.service?.name ?? 'Sin servicio'}</div>
+                      <div><strong>Inicio:</strong> {format(new Date(appointment.appointmentStart), "dd/MM/yyyy '·' hh:mm a")}</div>
+                      <div><strong>Fin:</strong> {format(new Date(appointment.appointmentEnd), "dd/MM/yyyy '·' hh:mm a")}</div>
+                      {appointment.notes ? <div><strong>Notas:</strong> {appointment.notes}</div> : null}
                     </div>
 
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                       <button onClick={() => handleCancelAppointment(appointment.id)} style={{ ...softButtonStyle(), color: 'var(--danger)', borderColor: 'rgba(220,38,38,0.18)', background: 'rgba(220,38,38,0.06)' }}>
-                        Cancel
+                        Cancelar
                       </button>
                       <button
                         onClick={() => {
@@ -356,14 +356,14 @@ export default function DashboardClient({
                         }}
                         style={softButtonStyle()}
                       >
-                        Reschedule
+                        Reagendar
                       </button>
 
                       {rescheduleTargetId === appointment.id ? (
                         <>
                           <input type="datetime-local" value={rescheduleDateTime} onChange={(event) => setRescheduleDateTime(event.target.value)} style={inputStyle()} />
                           <button onClick={() => handleRescheduleAppointment(appointment.id)} disabled={submitting} style={{ ...softButtonStyle(), background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>
-                            Save
+                            Guardar
                           </button>
                         </>
                       ) : null}
@@ -378,15 +378,15 @@ export default function DashboardClient({
             {(page === 'overview' || page === 'booking') ? <section id="booking" style={cardStyle()}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap', marginBottom: 18 }}>
                 <div>
-                  <h2 style={{ fontSize: 22, marginBottom: 6 }}>New Booking</h2>
-                  <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>Create appointments using real availability from the core.</p>
+                  <h2 style={{ fontSize: 22, marginBottom: 6 }}>Nueva cita</h2>
+                  <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>Crea citas usando disponibilidad real desde el core.</p>
                 </div>
                 {selectedService ? <span style={{ padding: '8px 12px', borderRadius: 999, background: 'var(--primary-soft)', border: '1px solid rgba(37,99,235,0.16)', color: '#1d4ed8', fontSize: 13 }}>{selectedService.name}</span> : null}
               </div>
 
               <div style={{ display: 'grid', gap: 12 }}>
                 <select value={selectedServiceId} onChange={(event) => { setSelectedServiceId(event.target.value); setSlotOptions([]); }} style={inputStyle()}>
-                  <option value="">Select a service</option>
+                  <option value="">Selecciona un servicio</option>
                   {services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
                 </select>
 
@@ -394,10 +394,10 @@ export default function DashboardClient({
 
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <button onClick={fetchSlots} disabled={loadingSlots} style={{ ...softButtonStyle(), background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>
-                    {loadingSlots ? 'Loading...' : 'Check availability'}
+                    {loadingSlots ? 'Cargando...' : 'Consultar disponibilidad'}
                   </button>
                   <button onClick={() => { setForm({ name: '', phone: '', email: '', notes: '' }); setSlotOptions([]); setMessage(null); setError(null); }} style={softButtonStyle()}>
-                    Clear
+                    Limpiar
                   </button>
                 </div>
 
@@ -411,25 +411,25 @@ export default function DashboardClient({
                   </select>
                 ) : (
                   <div style={{ padding: 14, borderRadius: 14, background: 'var(--card-soft)', color: 'var(--muted)', border: '1px dashed var(--card-border)' }}>
-                    Available slots will appear here.
+                    Aquí aparecerán los horarios disponibles.
                   </div>
                 )}
 
-                <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Patient name" style={inputStyle()} />
-                <input value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} placeholder="Phone" style={inputStyle()} />
-                <input value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} placeholder="Email" style={inputStyle()} />
-                <textarea value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Notes" rows={4} style={{ ...inputStyle(), resize: 'vertical' }} />
+                <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Nombre del paciente" style={inputStyle()} />
+                <input value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} placeholder="Teléfono" style={inputStyle()} />
+                <input value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} placeholder="Correo" style={inputStyle()} />
+                <textarea value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Notas" rows={4} style={{ ...inputStyle(), resize: 'vertical' }} />
 
                 <button onClick={handleCreateAppointment} disabled={submitting} style={{ ...softButtonStyle(), background: '#111827', color: '#fff', borderColor: '#111827', justifyContent: 'center' }}>
-                  {submitting ? 'Saving...' : 'Create appointment'}
+                  {submitting ? 'Guardando...' : 'Crear cita'}
                 </button>
               </div>
             </section> : null}
 
-            {(page === 'overview' || page === 'services') ? <section id="services" style={cardStyle()}>
-              <h2 style={{ fontSize: 22, marginBottom: 6 }}>Services</h2>
+            {page === 'services' ? <section id="services" style={cardStyle()}>
+              <h2 style={{ fontSize: 22, marginBottom: 6 }}>Servicios</h2>
               <p style={{ color: 'var(--muted)', lineHeight: 1.6, marginBottom: 18 }}>
-                Quick selection cards with preview slots for the next days.
+                Catálogo rápido de servicios con vista previa de horarios.
               </p>
 
               <div style={{ display: 'grid', gap: 14 }}>
@@ -443,7 +443,7 @@ export default function DashboardClient({
                       {service.description ?? 'Sin descripción.'}
                     </p>
                     {slots.length === 0 ? (
-                      <p style={{ color: 'var(--muted)' }}>No visible slots in the selected preview window.</p>
+                      <p style={{ color: 'var(--muted)' }}>No hay horarios visibles en esta ventana de tiempo.</p>
                     ) : (
                       <ul style={{ display: 'grid', gap: 8, paddingLeft: 18, color: '#374151' }}>
                         {slots.map((slot) => (
@@ -453,8 +453,8 @@ export default function DashboardClient({
                         ))}
                       </ul>
                     )}
-                    <button onClick={() => { setSelectedServiceId(service.id); setMessage(`Service selected: ${service.name}`); }} style={{ ...softButtonStyle(), marginTop: 12 }}>
-                      Use this service
+                    <button onClick={() => { setSelectedServiceId(service.id); setMessage(`Servicio seleccionado: ${service.name}`); }} style={{ ...softButtonStyle(), marginTop: 12 }}>
+                      Usar este servicio
                     </button>
                   </article>
                 ))}

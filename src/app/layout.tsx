@@ -29,21 +29,8 @@ export default function RootLayout({
     <html lang="es" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
         <div className="app-shell">
-          <header className="topbar">
-            <div className="topbar__inner">
-              <div className="brand-block">
-                <div className="brand-mark">🦷</div>
-                <div>
-                  <p className="brand-eyebrow">Dental La Molar</p>
-                  <strong className="brand-title">Admin Dashboard</strong>
-                </div>
-              </div>
-
-            </div>
-          </header>
-
           <div className="app-frame">
-            <aside id="sidebarMenu" className="volt-sidebar" aria-label="Sidebar navigation">
+            <aside id="sidebarMenu" className="volt-sidebar" aria-label="Navegación lateral">
               <div className="volt-sidebar__inner">
                 <ul className="volt-nav">
                   <SidebarNav />
