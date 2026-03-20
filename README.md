@@ -19,7 +19,7 @@ Demo de asistente de IA para Dental La Molar con enfoque en:
 
 ## Estado actual
 
-Fase 1: project setup
+Fase 1: project setup ✅ completada
 
 Incluye:
 
@@ -29,6 +29,18 @@ Incluye:
 - seed inicial para servicios y horario de 9 AM a 9 PM
 - `.env.example` con variables requeridas
 - estructura base para crecer con arquitectura limpia
+- utilidades base para Prisma y manejo de errores de dominio
+
+### Checklist de cierre de Fase 1
+
+- [x] Proyecto inicial con Next.js + TypeScript
+- [x] Prisma configurado para PostgreSQL/Neon
+- [x] Esquema inicial de datos para contactos, citas, servicios y conversación
+- [x] Seed inicial con servicios demo y horario de negocio
+- [x] `.env.example` documentado
+- [x] Landing/demo inicial
+- [x] Build de producción pasando
+- [x] Lint sin errores
 
 ## Primeros pasos
 
@@ -63,6 +75,16 @@ npm run db:seed
 ```bash
 npm run dev
 ```
+
+## Siguiente fase sugerida
+
+Fase 2: appointments core
+
+- disponibilidad real por servicio y duración
+- reglas de validación de slots
+- creación, cancelación y reagendado de citas
+- servicios de dominio para agenda
+- endpoints/server actions para operar la agenda
 
 ## Notas
 
