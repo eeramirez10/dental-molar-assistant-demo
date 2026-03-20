@@ -145,6 +145,7 @@ textarea {
   overflow-y: auto;
   min-width: 0;
   padding: 24px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f3f6fb 100%);
 }
 
 @media (max-width: 1100px) {

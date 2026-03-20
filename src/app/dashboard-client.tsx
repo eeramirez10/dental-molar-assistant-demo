@@ -89,6 +89,35 @@ function softButtonStyle() {
   } as const;
 }
 
+function pageMeta(page: Props['page']) {
+  switch (page) {
+    case 'appointments':
+      return {
+        breadcrumb: 'Panel / Citas',
+        title: 'Citas',
+        description: 'Administra citas programadas, canceladas y reagendadas.',
+      };
+    case 'booking':
+      return {
+        breadcrumb: 'Panel / Nueva cita',
+        title: 'Nueva cita',
+        description: 'Crea citas usando disponibilidad real desde el core.',
+      };
+    case 'services':
+      return {
+        breadcrumb: 'Panel / Servicios',
+        title: 'Servicios',
+        description: 'Consulta el catálogo y la vista previa de horarios por servicio.',
+      };
+    default:
+      return {
+        breadcrumb: 'Panel / Resumen',
+        title: 'Resumen',
+        description: 'Vista ejecutiva con métricas, gráficas y actividad reciente de la clínica.',
+      };
+  }
+}
+
 export default function DashboardClient({
   initialAppointments,
   services,
@@ -110,6 +139,8 @@ export default function DashboardClient({
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [dateQuery, setDateQuery] = useState('');
 
+  const meta = pageMeta(page);
+
   const selectedService = useMemo(
     () => services.find((service) => service.id === selectedServiceId) ?? null,
     [selectedServiceId, services],
@@ -122,6 +153,24 @@ export default function DashboardClient({
       return matchesStatus && matchesDate;
     });
   }, [appointments, dateQuery, statusFilter]);
+
+  const latestAppointments = useMemo(() => appointments.slice(0, 5), [appointments]);
+  const confirmedCount = useMemo(
+    () => appointments.filter((appointment) => appointment.status === 'CONFIRMED').length,
+    [appointments],
+  );
+  const cancelledCount = useMemo(
+    () => appointments.filter((appointment) => appointment.status === 'CANCELLED').length,
+    [appointments],
+  );
+  const rescheduledCount = useMemo(
+    () => appointments.filter((appointment) => appointment.status === 'RESCHEDULED').length,
+    [appointments],
+  );
+  const scheduledCount = useMemo(
+    () => appointments.filter((appointment) => appointment.status === 'SCHEDULED').length,
+    [appointments],
+  );
 
   async function refreshAppointments() {
     const response = await fetch('/api/appointments', { cache: 'no-store' });
@@ -260,52 +309,311 @@ export default function DashboardClient({
     <main style={{ minHeight: '100vh', color: 'var(--foreground)' }}>
       <section style={{ maxWidth: 1380, margin: '0 auto', padding: '4px 0 48px' }}>
         <div style={{ marginBottom: 18 }}>
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Panel / Resumen</p>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'end' }}>
+          <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>{meta.breadcrumb}</p>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 16,
+              flexWrap: 'wrap',
+              alignItems: 'end',
+            }}
+          >
             <div>
-              <h1 style={{ fontSize: 'clamp(2rem, 4vw, 2.9rem)', lineHeight: 1.05, marginBottom: 8 }}>
-                Resumen
+              <h1
+                style={{ fontSize: 'clamp(2rem, 4vw, 2.9rem)', lineHeight: 1.05, marginBottom: 8 }}
+              >
+                {meta.title}
               </h1>
               <p style={{ color: 'var(--muted)', maxWidth: 760, lineHeight: 1.7 }}>
-                Panel administrativo para la agenda de Dental La Molar.
+                {meta.description}
               </p>
-            </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button onClick={fetchSlots} disabled={loadingSlots} style={{ ...softButtonStyle(), background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>
-                {loadingSlots ? 'Actualizando...' : 'Actualizar disponibilidad'}
-              </button>
             </div>
           </div>
         </div>
 
-        {page === 'overview' ? (
-          <section id="overview" style={{ marginBottom: 22 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 16 }}>
-              {[
-                { label: 'Citas totales', value: appointments.length, tone: '#2563eb' },
-                { label: 'Servicios activos', value: services.length, tone: '#059669' },
-                { label: 'Slots visibles', value: slotOptions.length, tone: '#d97706' },
-                { label: 'Resultados filtrados', value: filteredAppointments.length, tone: '#7c3aed' },
-              ].map((item) => (
-                <article key={item.label} style={{ ...cardStyle(), padding: 20 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 12, background: `${item.tone}18`, marginBottom: 14 }} />
-                  <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>{item.label}</p>
-                  <strong style={{ fontSize: 30, color: '#111827' }}>{item.value}</strong>
-                </article>
-              ))}
-            </div>
-          </section>
+        {message ? (
+          <div
+            style={{
+              marginBottom: 18,
+              padding: 14,
+              borderRadius: 14,
+              background: 'rgba(5,150,105,0.08)',
+              border: '1px solid rgba(5,150,105,0.18)',
+              color: '#065f46',
+            }}
+          >
+            {message}
+          </div>
+        ) : null}
+        {error ? (
+          <div
+            style={{
+              marginBottom: 18,
+              padding: 14,
+              borderRadius: 14,
+              background: 'rgba(220,38,38,0.08)',
+              border: '1px solid rgba(220,38,38,0.18)',
+              color: '#991b1b',
+            }}
+          >
+            {error}
+          </div>
         ) : null}
 
-        {message ? <div style={{ marginBottom: 18, padding: 14, borderRadius: 14, background: 'rgba(5,150,105,0.08)', border: '1px solid rgba(5,150,105,0.18)', color: '#065f46' }}>{message}</div> : null}
-        {error ? <div style={{ marginBottom: 18, padding: 14, borderRadius: 14, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#991b1b' }}>{error}</div> : null}
+        {page === 'overview' ? (
+          <>
+            <section id="overview" style={{ marginBottom: 22 }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1.4fr 1fr',
+                  gap: 20,
+                  marginBottom: 20,
+                }}
+              >
+                <article
+                  style={{
+                    ...cardStyle(),
+                    background: '#fef3c7',
+                    border: '0',
+                    padding: 0,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div style={{ padding: 24, display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 18, marginBottom: 8, color: '#374151' }}>
+                        Valor operativo
+                      </div>
+                      <h2 style={{ fontSize: 34, fontWeight: 800, color: '#111827', marginBottom: 8 }}>
+                        {appointments.length}
+                      </h2>
+                      <div style={{ color: '#4b5563', fontSize: 14 }}>
+                        Citas registradas en el sistema
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'start' }}>
+                      <button style={{ ...softButtonStyle(), background: '#fff7ed' }}>Mes</button>
+                      <button
+                        style={{
+                          ...softButtonStyle(),
+                          background: '#111827',
+                          color: '#fff',
+                          borderColor: '#111827',
+                        }}
+                      >
+                        Semana
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ padding: '0 24px 24px' }}>
+                    <div
+                      style={{
+                        height: 140,
+                        display: 'flex',
+                        alignItems: 'end',
+                        gap: 12,
+                      }}
+                    >
+                      {[42, 55, 48, 66, 58, 73, 69].map((value, index) => (
+                        <div key={index} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          <div
+                            style={{
+                              height: `${value}%`,
+                              minHeight: 28,
+                              borderRadius: 12,
+                              background: index % 2 === 0 ? '#1f2937' : '#f0bc74',
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </article>
 
-        <div style={{ display: 'grid', gridTemplateColumns: page === 'overview' ? '1.35fr 1fr' : '1fr', gap: 20, alignItems: 'start' }}>
-          {(page === 'overview' || page === 'appointments') ? <section id="appointments" style={cardStyle()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, marginBottom: 18, flexWrap: 'wrap', alignItems: 'end' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(180px, 1fr))', gap: 16 }}>
+                  {[
+                    { label: 'Citas totales', value: appointments.length, tone: '#2563eb' },
+                    { label: 'Confirmadas', value: confirmedCount, tone: '#059669' },
+                    { label: 'Canceladas', value: cancelledCount, tone: '#dc2626' },
+                    { label: 'Reagendadas', value: rescheduledCount, tone: '#d97706' },
+                  ].map((item) => (
+                    <article key={item.label} style={{ ...cardStyle(), padding: 20 }}>
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 12,
+                          background: `${item.tone}18`,
+                          marginBottom: 14,
+                        }}
+                      />
+                      <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>{item.label}</p>
+                      <strong style={{ fontSize: 30, color: '#111827' }}>{item.value}</strong>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 20, alignItems: 'start' }}>
+              <section style={cardStyle()}>
+                <div style={{ marginBottom: 18, display: 'flex', justifyContent: 'space-between' }}>
+                  <div>
+                    <h2 style={{ fontSize: 22, marginBottom: 6 }}>Últimas 5 citas</h2>
+                    <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>
+                      Tabla rápida con la actividad más reciente.
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+                    <thead>
+                      <tr style={{ background: '#f9fafb', textAlign: 'left' }}>
+                        <th style={{ padding: '14px 16px', borderBottom: '1px solid var(--card-border)' }}>
+                          Paciente
+                        </th>
+                        <th style={{ padding: '14px 16px', borderBottom: '1px solid var(--card-border)' }}>
+                          Servicio
+                        </th>
+                        <th style={{ padding: '14px 16px', borderBottom: '1px solid var(--card-border)' }}>
+                          Inicio
+                        </th>
+                        <th style={{ padding: '14px 16px', borderBottom: '1px solid var(--card-border)' }}>
+                          Estatus
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {latestAppointments.map((appointment) => (
+                        <tr key={appointment.id}>
+                          <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--card-border)' }}>
+                            <div style={{ fontWeight: 700, color: '#111827' }}>{appointment.contact.name}</div>
+                            <div style={{ color: 'var(--muted)', fontSize: 14 }}>{appointment.contact.phone}</div>
+                          </td>
+                          <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--card-border)', color: '#4b5563' }}>
+                            {appointment.service?.name ?? 'Sin servicio'}
+                          </td>
+                          <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--card-border)', color: '#4b5563' }}>
+                            {format(new Date(appointment.appointmentStart), "dd/MM/yyyy '·' hh:mm a")}
+                          </td>
+                          <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--card-border)' }}>
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                padding: '8px 12px',
+                                borderRadius: 999,
+                                background: badgeColor(appointment.status),
+                                border: '1px solid var(--card-border)',
+                                fontSize: 12,
+                              }}
+                            >
+                              {appointment.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <div style={{ display: 'grid', gap: 20 }}>
+                <section style={cardStyle()}>
+                  <h2 style={{ fontSize: 22, marginBottom: 10 }}>Distribución de citas</h2>
+                  <p style={{ color: 'var(--muted)', lineHeight: 1.6, marginBottom: 18 }}>
+                    Vista rápida por estatus, con el lenguaje visual del dashboard.
+                  </p>
+
+                  <div style={{ display: 'grid', gap: 14 }}>
+                    {[
+                      { label: 'Programadas', value: scheduledCount, color: '#1f2937' },
+                      { label: 'Confirmadas', value: confirmedCount, color: '#10b981' },
+                      { label: 'Reagendadas', value: rescheduledCount, color: '#f59e0b' },
+                      { label: 'Canceladas', value: cancelledCount, color: '#ef4444' },
+                    ].map((item) => {
+                      const width = appointments.length ? Math.max((item.value / appointments.length) * 100, 8) : 8;
+
+                      return (
+                        <div key={item.label}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <span style={{ color: '#374151', fontWeight: 600 }}>{item.label}</span>
+                            <span style={{ color: 'var(--muted)' }}>{item.value}</span>
+                          </div>
+                          <div
+                            style={{
+                              height: 10,
+                              borderRadius: 999,
+                              background: '#eef2f7',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: `${width}%`,
+                                height: '100%',
+                                background: item.color,
+                                borderRadius: 999,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                <section style={cardStyle()}>
+                  <h2 style={{ fontSize: 22, marginBottom: 10 }}>Servicios activos</h2>
+                  <p style={{ color: 'var(--muted)', lineHeight: 1.6, marginBottom: 18 }}>
+                    Resumen del catálogo disponible en la clínica.
+                  </p>
+
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    {services.slice(0, 4).map((service) => (
+                      <article
+                        key={service.id}
+                        style={{
+                          padding: 14,
+                          borderRadius: 14,
+                          background: 'var(--card-soft)',
+                          border: '1px solid var(--card-border)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                          <strong>{service.name}</strong>
+                          <span style={{ color: 'var(--muted)', fontSize: 14 }}>
+                            {service.durationMinutes} min
+                          </span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        {page === 'appointments' ? (
+          <section id="appointments" style={cardStyle()}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 14,
+                marginBottom: 18,
+                flexWrap: 'wrap',
+                alignItems: 'end',
+              }}
+            >
               <div>
                 <h2 style={{ fontSize: 22, marginBottom: 6 }}>Citas</h2>
-                <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>Administra citas programadas, canceladas y reagendadas.</p>
+                <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>
+                  Administra citas programadas, canceladas y reagendadas.
+                </p>
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} style={inputStyle()}>
@@ -372,96 +680,98 @@ export default function DashboardClient({
                 ))
               )}
             </div>
-          </section> : null}
+          </section>
+        ) : null}
 
-          {(page === 'overview' || page === 'booking' || page === 'services') ? <div style={{ display: 'grid', gap: 20 }}>
-            {(page === 'overview' || page === 'booking') ? <section id="booking" style={cardStyle()}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap', marginBottom: 18 }}>
-                <div>
-                  <h2 style={{ fontSize: 22, marginBottom: 6 }}>Nueva cita</h2>
-                  <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>Crea citas usando disponibilidad real desde el core.</p>
-                </div>
-                {selectedService ? <span style={{ padding: '8px 12px', borderRadius: 999, background: 'var(--primary-soft)', border: '1px solid rgba(37,99,235,0.16)', color: '#1d4ed8', fontSize: 13 }}>{selectedService.name}</span> : null}
+        {page === 'booking' ? (
+          <section id="booking" style={cardStyle()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap', marginBottom: 18 }}>
+              <div>
+                <h2 style={{ fontSize: 22, marginBottom: 6 }}>Nueva cita</h2>
+                <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>Crea citas usando disponibilidad real desde el core.</p>
               </div>
+              {selectedService ? <span style={{ padding: '8px 12px', borderRadius: 999, background: '#eef2ff', border: '1px solid rgba(37,99,235,0.16)', color: '#1d4ed8', fontSize: 13 }}>{selectedService.name}</span> : null}
+            </div>
 
-              <div style={{ display: 'grid', gap: 12 }}>
-                <select value={selectedServiceId} onChange={(event) => { setSelectedServiceId(event.target.value); setSlotOptions([]); }} style={inputStyle()}>
-                  <option value="">Selecciona un servicio</option>
-                  {services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
-                </select>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <select value={selectedServiceId} onChange={(event) => { setSelectedServiceId(event.target.value); setSlotOptions([]); }} style={inputStyle()}>
+                <option value="">Selecciona un servicio</option>
+                {services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
+              </select>
 
-                <input type="datetime-local" value={selectedDateTime} onChange={(event) => setSelectedDateTime(event.target.value)} style={inputStyle()} />
+              <input type="datetime-local" value={selectedDateTime} onChange={(event) => setSelectedDateTime(event.target.value)} style={inputStyle()} />
 
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <button onClick={fetchSlots} disabled={loadingSlots} style={{ ...softButtonStyle(), background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>
-                    {loadingSlots ? 'Cargando...' : 'Consultar disponibilidad'}
-                  </button>
-                  <button onClick={() => { setForm({ name: '', phone: '', email: '', notes: '' }); setSlotOptions([]); setMessage(null); setError(null); }} style={softButtonStyle()}>
-                    Limpiar
-                  </button>
-                </div>
-
-                {slotOptions.length > 0 ? (
-                  <select value={selectedDateTime} onChange={(event) => setSelectedDateTime(event.target.value)} style={inputStyle()}>
-                    {slotOptions.map((slot) => (
-                      <option key={slot.start} value={toDatetimeLocalValue(new Date(slot.start))}>
-                        {format(new Date(slot.start), "dd/MM/yyyy '·' hh:mm a")} → {format(new Date(slot.end), 'hh:mm a')}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div style={{ padding: 14, borderRadius: 14, background: 'var(--card-soft)', color: 'var(--muted)', border: '1px dashed var(--card-border)' }}>
-                    Aquí aparecerán los horarios disponibles.
-                  </div>
-                )}
-
-                <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Nombre del paciente" style={inputStyle()} />
-                <input value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} placeholder="Teléfono" style={inputStyle()} />
-                <input value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} placeholder="Correo" style={inputStyle()} />
-                <textarea value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Notas" rows={4} style={{ ...inputStyle(), resize: 'vertical' }} />
-
-                <button onClick={handleCreateAppointment} disabled={submitting} style={{ ...softButtonStyle(), background: '#111827', color: '#fff', borderColor: '#111827', justifyContent: 'center' }}>
-                  {submitting ? 'Guardando...' : 'Crear cita'}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button onClick={fetchSlots} disabled={loadingSlots} style={{ ...softButtonStyle(), background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>
+                  {loadingSlots ? 'Cargando...' : 'Consultar disponibilidad'}
+                </button>
+                <button onClick={() => { setForm({ name: '', phone: '', email: '', notes: '' }); setSlotOptions([]); setMessage(null); setError(null); }} style={softButtonStyle()}>
+                  Limpiar
                 </button>
               </div>
-            </section> : null}
 
-            {page === 'services' ? <section id="services" style={cardStyle()}>
-              <h2 style={{ fontSize: 22, marginBottom: 6 }}>Servicios</h2>
-              <p style={{ color: 'var(--muted)', lineHeight: 1.6, marginBottom: 18 }}>
-                Catálogo rápido de servicios con vista previa de horarios.
-              </p>
+              {slotOptions.length > 0 ? (
+                <select value={selectedDateTime} onChange={(event) => setSelectedDateTime(event.target.value)} style={inputStyle()}>
+                  {slotOptions.map((slot) => (
+                    <option key={slot.start} value={toDatetimeLocalValue(new Date(slot.start))}>
+                      {format(new Date(slot.start), "dd/MM/yyyy '·' hh:mm a")} → {format(new Date(slot.end), 'hh:mm a')}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ padding: 14, borderRadius: 14, background: 'var(--card-soft)', color: 'var(--muted)', border: '1px dashed var(--card-border)' }}>
+                  Aquí aparecerán los horarios disponibles.
+                </div>
+              )}
 
-              <div style={{ display: 'grid', gap: 14 }}>
-                {availabilityByService.map(({ service, slots }) => (
-                  <article key={service.id} style={{ padding: 16, borderRadius: 16, background: 'var(--card-soft)', border: '1px solid var(--card-border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-                      <strong>{service.name}</strong>
-                      <span style={{ color: 'var(--muted)', fontSize: 14 }}>{service.durationMinutes} min</span>
-                    </div>
-                    <p style={{ color: 'var(--muted)', lineHeight: 1.5, marginBottom: 10 }}>
-                      {service.description ?? 'Sin descripción.'}
-                    </p>
-                    {slots.length === 0 ? (
-                      <p style={{ color: 'var(--muted)' }}>No hay horarios visibles en esta ventana de tiempo.</p>
-                    ) : (
-                      <ul style={{ display: 'grid', gap: 8, paddingLeft: 18, color: '#374151' }}>
-                        {slots.map((slot) => (
-                          <li key={slot.start}>
-                            {format(new Date(slot.start), "dd/MM '·' hh:mm a")} → {format(new Date(slot.end), 'hh:mm a')}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <button onClick={() => { setSelectedServiceId(service.id); setMessage(`Servicio seleccionado: ${service.name}`); }} style={{ ...softButtonStyle(), marginTop: 12 }}>
-                      Usar este servicio
-                    </button>
-                  </article>
-                ))}
-              </div>
-            </section> : null}
-          </div> : null}
-        </div>
+              <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Nombre del paciente" style={inputStyle()} />
+              <input value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} placeholder="Teléfono" style={inputStyle()} />
+              <input value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} placeholder="Correo" style={inputStyle()} />
+              <textarea value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Notas" rows={4} style={{ ...inputStyle(), resize: 'vertical' }} />
+
+              <button onClick={handleCreateAppointment} disabled={submitting} style={{ ...softButtonStyle(), background: '#111827', color: '#fff', borderColor: '#111827', justifyContent: 'center' }}>
+                {submitting ? 'Guardando...' : 'Crear cita'}
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        {page === 'services' ? (
+          <section id="services" style={cardStyle()}>
+            <h2 style={{ fontSize: 22, marginBottom: 6 }}>Servicios</h2>
+            <p style={{ color: 'var(--muted)', lineHeight: 1.6, marginBottom: 18 }}>
+              Catálogo rápido de servicios con vista previa de horarios.
+            </p>
+
+            <div style={{ display: 'grid', gap: 14 }}>
+              {availabilityByService.map(({ service, slots }) => (
+                <article key={service.id} style={{ padding: 16, borderRadius: 16, background: 'var(--card-soft)', border: '1px solid var(--card-border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+                    <strong>{service.name}</strong>
+                    <span style={{ color: 'var(--muted)', fontSize: 14 }}>{service.durationMinutes} min</span>
+                  </div>
+                  <p style={{ color: 'var(--muted)', lineHeight: 1.5, marginBottom: 10 }}>
+                    {service.description ?? 'Sin descripción.'}
+                  </p>
+                  {slots.length === 0 ? (
+                    <p style={{ color: 'var(--muted)' }}>No hay horarios visibles en esta ventana de tiempo.</p>
+                  ) : (
+                    <ul style={{ display: 'grid', gap: 8, paddingLeft: 18, color: '#374151' }}>
+                      {slots.map((slot) => (
+                        <li key={slot.start}>
+                          {format(new Date(slot.start), "dd/MM '·' hh:mm a")} → {format(new Date(slot.end), 'hh:mm a')}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <button onClick={() => { setSelectedServiceId(service.id); setMessage(`Servicio seleccionado: ${service.name}`); }} style={{ ...softButtonStyle(), marginTop: 12 }}>
+                    Usar este servicio
+                  </button>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </section>
     </main>
   );
