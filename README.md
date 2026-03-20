@@ -91,6 +91,7 @@ Implementado en esta fase:
 - endpoint `GET /api/services` para catálogo activo
 - panel interactivo en `/` con lista de citas, catálogo, consulta de slots y formulario para crear/reagendar/cancelar citas
 - navbar superior, sidebar de navegación, header del dashboard y mejoras de UX como filtros de citas, confirmación al cancelar y acciones de limpieza de formulario
+- refresh visual del dashboard inspirado en Volt: layout admin más limpio, cards claras, overview con métricas y look & feel más SaaS/admin
 
 ### Endpoints actuales
 

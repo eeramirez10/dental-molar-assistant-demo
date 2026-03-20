@@ -40,15 +40,15 @@ type Props = {
 function badgeColor(status: string) {
   switch (status) {
     case 'CONFIRMED':
-      return 'rgba(76, 175, 80, 0.18)';
+      return 'rgba(5, 150, 105, 0.14)';
     case 'CANCELLED':
-      return 'rgba(244, 67, 54, 0.18)';
+      return 'rgba(220, 38, 38, 0.14)';
     case 'RESCHEDULED':
-      return 'rgba(255, 193, 7, 0.18)';
+      return 'rgba(217, 119, 6, 0.14)';
     case 'COMPLETED':
-      return 'rgba(33, 150, 243, 0.18)';
+      return 'rgba(37, 99, 235, 0.14)';
     default:
-      return 'rgba(115, 149, 255, 0.18)';
+      return 'rgba(37, 99, 235, 0.12)';
   }
 }
 
@@ -60,10 +60,31 @@ function toDatetimeLocalValue(date: Date) {
 function cardStyle() {
   return {
     padding: 24,
-    borderRadius: 28,
+    borderRadius: 18,
     background: 'var(--card)',
     border: '1px solid var(--card-border)',
     boxShadow: 'var(--shadow)',
+  } as const;
+}
+
+function inputStyle() {
+  return {
+    padding: '12px 14px',
+    borderRadius: 12,
+    border: '1px solid var(--card-border)',
+    background: 'var(--input-bg)',
+    color: 'var(--foreground)',
+  } as const;
+}
+
+function softButtonStyle() {
+  return {
+    padding: '10px 14px',
+    borderRadius: 12,
+    border: '1px solid var(--card-border)',
+    background: '#fff',
+    color: 'var(--foreground)',
+    cursor: 'pointer',
   } as const;
 }
 
@@ -77,12 +98,7 @@ export default function DashboardClient({
   const [selectedServiceId, setSelectedServiceId] = useState(services[0]?.id ?? '');
   const [selectedDateTime, setSelectedDateTime] = useState(toDatetimeLocalValue(new Date()));
   const [slotOptions, setSlotOptions] = useState<SlotItem[]>([]);
-  const [form, setForm] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    notes: '',
-  });
+  const [form, setForm] = useState({ name: '', phone: '', email: '', notes: '' });
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -100,9 +116,7 @@ export default function DashboardClient({
   const filteredAppointments = useMemo(() => {
     return appointments.filter((appointment) => {
       const matchesStatus = statusFilter === 'ALL' || appointment.status === statusFilter;
-      const matchesDate =
-        !dateQuery || appointment.appointmentStart.slice(0, 10) === dateQuery.trim();
-
+      const matchesDate = !dateQuery || appointment.appointmentStart.slice(0, 10) === dateQuery;
       return matchesStatus && matchesDate;
     });
   }, [appointments, dateQuery, statusFilter]);
@@ -110,11 +124,7 @@ export default function DashboardClient({
   async function refreshAppointments() {
     const response = await fetch('/api/appointments', { cache: 'no-store' });
     const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload.error ?? 'No se pudieron cargar las citas.');
-    }
-
+    if (!response.ok) throw new Error(payload.error ?? 'No se pudieron cargar las citas.');
     setAppointments(payload.data);
   }
 
@@ -141,18 +151,14 @@ export default function DashboardClient({
 
       const response = await fetch(`/api/availability?${params.toString()}`, { cache: 'no-store' });
       const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? 'No se pudo consultar disponibilidad.');
-      }
+      if (!response.ok) throw new Error(payload.error ?? 'No se pudo consultar disponibilidad.');
 
       setSlotOptions(payload.data);
-
       if (payload.data.length === 0) {
-        setMessage('No encontré slots para esa ventana. Toca probar otra fecha.');
+        setMessage('No encontré slots para esa ventana. Prueba otra fecha.');
       } else {
         setSelectedDateTime(toDatetimeLocalValue(new Date(payload.data[0].start)));
-        setMessage('Slots cargados. Ya puedes escoger uno para crear la cita.');
+        setMessage('Disponibilidad cargada correctamente.');
       }
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : 'No se pudo consultar slots.');
@@ -162,13 +168,8 @@ export default function DashboardClient({
   }
 
   async function handleCreateAppointment() {
-    if (!selectedServiceId) {
-      setError('Elige un servicio antes de crear la cita.');
-      return;
-    }
-
-    if (!selectedDateTime) {
-      setError('Elige un horario para la cita.');
+    if (!selectedServiceId || !selectedDateTime) {
+      setError('Completa servicio y horario antes de crear la cita.');
       return;
     }
 
@@ -193,12 +194,9 @@ export default function DashboardClient({
       });
 
       const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? 'No se pudo crear la cita.');
 
-      if (!response.ok) {
-        throw new Error(payload.error ?? 'No se pudo crear la cita.');
-      }
-
-      setMessage('Cita creada correctamente. Ya tenemos paciente en la agenda 😌');
+      setMessage('Cita creada correctamente.');
       setForm({ name: '', phone: '', email: '', notes: '' });
       setSlotOptions([]);
       await refreshAppointments();
@@ -210,24 +208,16 @@ export default function DashboardClient({
   }
 
   async function handleCancelAppointment(appointmentId: string) {
-    if (!window.confirm('¿Cancelar esta cita?')) {
-      return;
-    }
-
+    if (!window.confirm('¿Cancelar esta cita?')) return;
     setError(null);
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/appointments/${appointmentId}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(`/api/appointments/${appointmentId}`, { method: 'DELETE' });
       const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? 'No se pudo cancelar la cita.');
 
-      if (!response.ok) {
-        throw new Error(payload.error ?? 'No se pudo cancelar la cita.');
-      }
-
-      setMessage('Cita cancelada. El sillón volvió a respirar.');
+      setMessage('Cita cancelada correctamente.');
       await refreshAppointments();
     } catch (cancelError) {
       setError(cancelError instanceof Error ? cancelError.message : 'No se pudo cancelar.');
@@ -248,24 +238,17 @@ export default function DashboardClient({
       const response = await fetch(`/api/appointments/${appointmentId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          appointmentStart: new Date(rescheduleDateTime).toISOString(),
-        }),
+        body: JSON.stringify({ appointmentStart: new Date(rescheduleDateTime).toISOString() }),
       });
 
       const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? 'No se pudo reagendar la cita.');
 
-      if (!response.ok) {
-        throw new Error(payload.error ?? 'No se pudo reagendar la cita.');
-      }
-
-      setMessage('Cita reagendada correctamente. Ahora sí cayó en un slot decente.');
+      setMessage('Cita reagendada correctamente.');
       setRescheduleTargetId(null);
       await refreshAppointments();
     } catch (rescheduleError) {
-      setError(
-        rescheduleError instanceof Error ? rescheduleError.message : 'No se pudo reagendar.',
-      );
+      setError(rescheduleError instanceof Error ? rescheduleError.message : 'No se pudo reagendar.');
     } finally {
       setSubmitting(false);
     }
@@ -273,305 +256,110 @@ export default function DashboardClient({
 
   return (
     <main style={{ minHeight: '100vh', color: 'var(--foreground)' }}>
-      <section style={{ maxWidth: 1380, margin: '0 auto', padding: '28px 24px 72px' }}>
-        <section
-          id="overview"
-          style={{
-            ...cardStyle(),
-            marginBottom: 22,
-            padding: 32,
-            background:
-              'linear-gradient(135deg, rgba(115,149,255,0.18), rgba(12,23,42,0.92) 40%, rgba(12,23,42,0.96))',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: 18,
-              flexWrap: 'wrap',
-              alignItems: 'flex-end',
-            }}
-          >
-            <div style={{ maxWidth: 820 }}>
-              <div
-                style={{
-                  display: 'inline-flex',
-                  padding: '8px 14px',
-                  borderRadius: 999,
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  marginBottom: 18,
-                  fontSize: 14,
-                }}
-              >
-                Dental La Molar · Demo panel interactivo
-              </div>
-
-              <h1
-                style={{
-                  fontSize: 'clamp(2.3rem, 6vw, 4.4rem)',
-                  lineHeight: 0.96,
-                  marginBottom: 14,
-                }}
-              >
-                Agenda dental con navegación, header y mejor UX.
+      <section style={{ maxWidth: 1380, margin: '0 auto', padding: '4px 0 48px' }}>
+        <div style={{ marginBottom: 18 }}>
+          <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Dashboard / Overview</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'end' }}>
+            <div>
+              <h1 style={{ fontSize: 'clamp(2rem, 4vw, 2.9rem)', lineHeight: 1.05, marginBottom: 8 }}>
+                Overview
               </h1>
-
-              <p style={{ maxWidth: 760, color: 'var(--muted)', fontSize: 18, lineHeight: 1.7 }}>
-                El panel ya se siente más app y menos experimento suelto: navegación superior,
-                resumen rápido, filtros para citas y flujo más cómodo para reservar.
+              <p style={{ color: 'var(--muted)', maxWidth: 760, lineHeight: 1.7 }}>
+                Panel administrativo para la agenda de Dental La Molar, inspirado en el look & feel de Volt.
               </p>
             </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, minmax(150px, 1fr))',
-                gap: 14,
-                minWidth: 'min(100%, 520px)',
-              }}
-            >
-              <article style={{ ...cardStyle(), padding: 18, background: 'rgba(255,255,255,0.05)' }}>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>Citas</div>
-                <strong style={{ fontSize: 30 }}>{appointments.length}</strong>
-              </article>
-              <article style={{ ...cardStyle(), padding: 18, background: 'rgba(255,255,255,0.05)' }}>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>Servicios</div>
-                <strong style={{ fontSize: 30 }}>{services.length}</strong>
-              </article>
-              <article style={{ ...cardStyle(), padding: 18, background: 'rgba(255,255,255,0.05)' }}>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>Slots vistos</div>
-                <strong style={{ fontSize: 30 }}>{slotOptions.length}</strong>
-              </article>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button onClick={fetchSlots} disabled={loadingSlots} style={{ ...softButtonStyle(), background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>
+                {loadingSlots ? 'Refreshing...' : 'Refresh availability'}
+              </button>
             </div>
+          </div>
+        </div>
+
+        <section id="overview" style={{ marginBottom: 22 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 16 }}>
+            {[
+              { label: 'Total Appointments', value: appointments.length, tone: '#2563eb' },
+              { label: 'Active Services', value: services.length, tone: '#059669' },
+              { label: 'Visible Slots', value: slotOptions.length, tone: '#d97706' },
+              { label: 'Filtered Results', value: filteredAppointments.length, tone: '#7c3aed' },
+            ].map((item) => (
+              <article key={item.label} style={{ ...cardStyle(), padding: 20 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: `${item.tone}18`, marginBottom: 14 }} />
+                <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>{item.label}</p>
+                <strong style={{ fontSize: 30, color: '#111827' }}>{item.value}</strong>
+              </article>
+            ))}
           </div>
         </section>
 
-        {message ? (
-          <div
-            style={{
-              marginBottom: 18,
-              padding: 14,
-              borderRadius: 16,
-              background: 'rgba(76, 175, 80, 0.15)',
-              border: '1px solid rgba(76, 175, 80, 0.3)',
-            }}
-          >
-            {message}
-          </div>
-        ) : null}
-        {error ? (
-          <div
-            style={{
-              marginBottom: 18,
-              padding: 14,
-              borderRadius: 16,
-              background: 'rgba(244, 67, 54, 0.15)',
-              border: '1px solid rgba(244, 67, 54, 0.3)',
-            }}
-          >
-            {error}
-          </div>
-        ) : null}
+        {message ? <div style={{ marginBottom: 18, padding: 14, borderRadius: 14, background: 'rgba(5,150,105,0.08)', border: '1px solid rgba(5,150,105,0.18)', color: '#065f46' }}>{message}</div> : null}
+        {error ? <div style={{ marginBottom: 18, padding: 14, borderRadius: 14, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#991b1b' }}>{error}</div> : null}
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1.35fr 1fr',
-            gap: 20,
-            alignItems: 'start',
-          }}
-        >
+        <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 20, alignItems: 'start' }}>
           <section id="appointments" style={cardStyle()}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 14,
-                marginBottom: 18,
-                flexWrap: 'wrap',
-                alignItems: 'end',
-              }}
-            >
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, marginBottom: 18, flexWrap: 'wrap', alignItems: 'end' }}>
               <div>
-                <h2 style={{ fontSize: 24, marginBottom: 8 }}>Próximas citas</h2>
-                <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>
-                  Agenda viva del demo con filtros básicos.
-                </p>
+                <h2 style={{ fontSize: 22, marginBottom: 6 }}>Appointments</h2>
+                <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>Manage scheduled, cancelled and rescheduled appointments.</p>
               </div>
-
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <label style={{ display: 'grid', gap: 6 }}>
-                  <span style={{ color: 'var(--muted)', fontSize: 13 }}>Estatus</span>
-                  <select
-                    value={statusFilter}
-                    onChange={(event) => setStatusFilter(event.target.value)}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: 12,
-                      border: '1px solid var(--card-border)',
-                      background: 'var(--input-bg)',
-                      color: 'var(--foreground)',
-                    }}
-                  >
-                    <option value="ALL">Todos</option>
-                    <option value="SCHEDULED">Programadas</option>
-                    <option value="RESCHEDULED">Reagendadas</option>
-                    <option value="CANCELLED">Canceladas</option>
-                    <option value="CONFIRMED">Confirmadas</option>
-                    <option value="COMPLETED">Completadas</option>
-                  </select>
-                </label>
-
-                <label style={{ display: 'grid', gap: 6 }}>
-                  <span style={{ color: 'var(--muted)', fontSize: 13 }}>Fecha</span>
-                  <input
-                    type="date"
-                    value={dateQuery}
-                    onChange={(event) => setDateQuery(event.target.value)}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: 12,
-                      border: '1px solid var(--card-border)',
-                      background: 'var(--input-bg)',
-                      color: 'var(--foreground)',
-                    }}
-                  />
-                </label>
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} style={inputStyle()}>
+                  <option value="ALL">All status</option>
+                  <option value="SCHEDULED">Scheduled</option>
+                  <option value="RESCHEDULED">Rescheduled</option>
+                  <option value="CANCELLED">Cancelled</option>
+                  <option value="CONFIRMED">Confirmed</option>
+                  <option value="COMPLETED">Completed</option>
+                </select>
+                <input type="date" value={dateQuery} onChange={(event) => setDateQuery(event.target.value)} style={inputStyle()} />
               </div>
             </div>
 
             <div style={{ display: 'grid', gap: 14 }}>
               {filteredAppointments.length === 0 ? (
-                <div
-                  style={{
-                    padding: 18,
-                    borderRadius: 20,
-                    background: 'var(--card-soft)',
-                    color: '#b5c0d8',
-                  }}
-                >
-                  No hay citas que coincidan con tus filtros.
+                <div style={{ padding: 18, borderRadius: 14, background: 'var(--card-soft)', color: 'var(--muted)', border: '1px dashed var(--card-border)' }}>
+                  No appointments match the selected filters.
                 </div>
               ) : (
                 filteredAppointments.map((appointment) => (
-                  <article
-                    key={appointment.id}
-                    style={{
-                      padding: 18,
-                      borderRadius: 22,
-                      background: 'var(--card-soft)',
-                      border: '1px solid rgba(255,255,255,0.06)',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        gap: 12,
-                        flexWrap: 'wrap',
-                        marginBottom: 12,
-                      }}
-                    >
+                  <article key={appointment.id} style={{ padding: 18, borderRadius: 16, background: 'var(--card-soft)', border: '1px solid var(--card-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
                       <div>
-                        <h3 style={{ fontSize: 18, marginBottom: 4 }}>{appointment.contact.name}</h3>
-                        <p style={{ color: '#8ea0c7' }}>{appointment.contact.phone}</p>
+                        <h3 style={{ fontSize: 17, marginBottom: 4 }}>{appointment.contact.name}</h3>
+                        <p style={{ color: 'var(--muted)' }}>{appointment.contact.phone}</p>
                       </div>
-                      <span
-                        style={{
-                          alignSelf: 'start',
-                          padding: '8px 12px',
-                          borderRadius: 999,
-                          background: badgeColor(appointment.status),
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          fontSize: 12,
-                          letterSpacing: 0.4,
-                        }}
-                      >
+                      <span style={{ alignSelf: 'start', padding: '8px 12px', borderRadius: 999, background: badgeColor(appointment.status), border: '1px solid var(--card-border)', fontSize: 12, color: '#111827' }}>
                         {appointment.status}
                       </span>
                     </div>
 
-                    <div style={{ display: 'grid', gap: 6, color: '#d7e2ff', marginBottom: 14 }}>
-                      <div>
-                        <strong>Servicio:</strong> {appointment.service?.name ?? 'Sin servicio'}
-                      </div>
-                      <div>
-                        <strong>Inicio:</strong>{' '}
-                        {format(new Date(appointment.appointmentStart), "dd/MM/yyyy '·' hh:mm a")}
-                      </div>
-                      <div>
-                        <strong>Fin:</strong>{' '}
-                        {format(new Date(appointment.appointmentEnd), "dd/MM/yyyy '·' hh:mm a")}
-                      </div>
-                      {appointment.notes ? (
-                        <div>
-                          <strong>Notas:</strong> {appointment.notes}
-                        </div>
-                      ) : null}
+                    <div style={{ display: 'grid', gap: 6, color: '#374151', marginBottom: 14 }}>
+                      <div><strong>Service:</strong> {appointment.service?.name ?? 'Sin servicio'}</div>
+                      <div><strong>Start:</strong> {format(new Date(appointment.appointmentStart), "dd/MM/yyyy '·' hh:mm a")}</div>
+                      <div><strong>End:</strong> {format(new Date(appointment.appointmentEnd), "dd/MM/yyyy '·' hh:mm a")}</div>
+                      {appointment.notes ? <div><strong>Notes:</strong> {appointment.notes}</div> : null}
                     </div>
 
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                      <button
-                        onClick={() => handleCancelAppointment(appointment.id)}
-                        style={{
-                          padding: '10px 14px',
-                          borderRadius: 12,
-                          border: '1px solid rgba(244,67,54,0.4)',
-                          background: 'rgba(244,67,54,0.14)',
-                          color: '#ffd6d6',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Cancelar
+                      <button onClick={() => handleCancelAppointment(appointment.id)} style={{ ...softButtonStyle(), color: 'var(--danger)', borderColor: 'rgba(220,38,38,0.18)', background: 'rgba(220,38,38,0.06)' }}>
+                        Cancel
                       </button>
                       <button
                         onClick={() => {
                           setRescheduleTargetId(appointment.id);
-                          setRescheduleDateTime(
-                            toDatetimeLocalValue(new Date(appointment.appointmentStart)),
-                          );
+                          setRescheduleDateTime(toDatetimeLocalValue(new Date(appointment.appointmentStart)));
                         }}
-                        style={{
-                          padding: '10px 14px',
-                          borderRadius: 12,
-                          border: '1px solid rgba(255,255,255,0.12)',
-                          background: 'rgba(255,255,255,0.06)',
-                          color: '#f3f7ff',
-                          cursor: 'pointer',
-                        }}
+                        style={softButtonStyle()}
                       >
-                        Reagendar
+                        Reschedule
                       </button>
 
                       {rescheduleTargetId === appointment.id ? (
                         <>
-                          <input
-                            type="datetime-local"
-                            value={rescheduleDateTime}
-                            onChange={(event) => setRescheduleDateTime(event.target.value)}
-                            style={{
-                              padding: '10px 12px',
-                              borderRadius: 12,
-                              border: '1px solid rgba(255,255,255,0.14)',
-                              background: 'var(--input-bg)',
-                              color: '#f3f7ff',
-                            }}
-                          />
-                          <button
-                            onClick={() => handleRescheduleAppointment(appointment.id)}
-                            disabled={submitting}
-                            style={{
-                              padding: '10px 14px',
-                              borderRadius: 12,
-                              border: '1px solid rgba(115,149,255,0.4)',
-                              background: 'rgba(115,149,255,0.18)',
-                              color: '#f3f7ff',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Guardar cambio
+                          <input type="datetime-local" value={rescheduleDateTime} onChange={(event) => setRescheduleDateTime(event.target.value)} style={inputStyle()} />
+                          <button onClick={() => handleRescheduleAppointment(appointment.id)} disabled={submitting} style={{ ...softButtonStyle(), background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>
+                            Save
                           </button>
                         </>
                       ) : null}
@@ -584,304 +372,85 @@ export default function DashboardClient({
 
           <div style={{ display: 'grid', gap: 20 }}>
             <section id="booking" style={cardStyle()}>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  alignItems: 'start',
-                  flexWrap: 'wrap',
-                  marginBottom: 18,
-                }}
-              >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap', marginBottom: 18 }}>
                 <div>
-                  <h2 style={{ fontSize: 24, marginBottom: 8 }}>Crear cita</h2>
-                  <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>
-                    Selecciona servicio, busca disponibilidad y agenda desde el panel.
-                  </p>
+                  <h2 style={{ fontSize: 22, marginBottom: 6 }}>New Booking</h2>
+                  <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>Create appointments using real availability from the core.</p>
                 </div>
-                {selectedService ? (
-                  <span
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 999,
-                      background: 'rgba(115,149,255,0.16)',
-                      border: '1px solid rgba(115,149,255,0.32)',
-                      color: '#dce6ff',
-                      fontSize: 13,
-                    }}
-                  >
-                    Activo: {selectedService.name}
-                  </span>
-                ) : null}
+                {selectedService ? <span style={{ padding: '8px 12px', borderRadius: 999, background: 'var(--primary-soft)', border: '1px solid rgba(37,99,235,0.16)', color: '#1d4ed8', fontSize: 13 }}>{selectedService.name}</span> : null}
               </div>
 
               <div style={{ display: 'grid', gap: 12 }}>
-                <label style={{ display: 'grid', gap: 6 }}>
-                  <span style={{ color: '#b5c0d8', fontSize: 14 }}>Servicio</span>
-                  <select
-                    value={selectedServiceId}
-                    onChange={(event) => {
-                      setSelectedServiceId(event.target.value);
-                      setSlotOptions([]);
-                    }}
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      border: '1px solid var(--card-border)',
-                      background: 'var(--input-bg)',
-                      color: '#f3f7ff',
-                    }}
-                  >
-                    <option value="">Selecciona un servicio</option>
-                    {services.map((service) => (
-                      <option key={service.id} value={service.id}>
-                        {service.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <select value={selectedServiceId} onChange={(event) => { setSelectedServiceId(event.target.value); setSlotOptions([]); }} style={inputStyle()}>
+                  <option value="">Select a service</option>
+                  {services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
+                </select>
 
-                <label style={{ display: 'grid', gap: 6 }}>
-                  <span style={{ color: '#b5c0d8', fontSize: 14 }}>Fecha para consultar slots</span>
-                  <input
-                    type="datetime-local"
-                    value={selectedDateTime}
-                    onChange={(event) => setSelectedDateTime(event.target.value)}
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      border: '1px solid var(--card-border)',
-                      background: 'var(--input-bg)',
-                      color: '#f3f7ff',
-                    }}
-                  />
-                </label>
+                <input type="datetime-local" value={selectedDateTime} onChange={(event) => setSelectedDateTime(event.target.value)} style={inputStyle()} />
 
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <button
-                    onClick={fetchSlots}
-                    disabled={loadingSlots}
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      border: '1px solid rgba(115,149,255,0.34)',
-                      background: 'rgba(115,149,255,0.18)',
-                      color: '#f3f7ff',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {loadingSlots ? 'Consultando slots...' : 'Consultar disponibilidad'}
+                  <button onClick={fetchSlots} disabled={loadingSlots} style={{ ...softButtonStyle(), background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>
+                    {loadingSlots ? 'Loading...' : 'Check availability'}
                   </button>
-                  <button
-                    onClick={() => {
-                      setForm({ name: '', phone: '', email: '', notes: '' });
-                      setSlotOptions([]);
-                      setMessage(null);
-                      setError(null);
-                    }}
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      background: 'rgba(255,255,255,0.04)',
-                      color: '#f3f7ff',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Limpiar formulario
+                  <button onClick={() => { setForm({ name: '', phone: '', email: '', notes: '' }); setSlotOptions([]); setMessage(null); setError(null); }} style={softButtonStyle()}>
+                    Clear
                   </button>
                 </div>
 
                 {slotOptions.length > 0 ? (
-                  <label style={{ display: 'grid', gap: 6 }}>
-                    <span style={{ color: '#b5c0d8', fontSize: 14 }}>Slot sugerido</span>
-                    <select
-                      value={selectedDateTime}
-                      onChange={(event) => setSelectedDateTime(event.target.value)}
-                      style={{
-                        padding: '12px 14px',
-                        borderRadius: 14,
-                        border: '1px solid var(--card-border)',
-                        background: 'var(--input-bg)',
-                        color: '#f3f7ff',
-                      }}
-                    >
-                      {slotOptions.map((slot) => (
-                        <option key={slot.start} value={toDatetimeLocalValue(new Date(slot.start))}>
-                          {format(new Date(slot.start), "dd/MM/yyyy '·' hh:mm a")} →{' '}
-                          {format(new Date(slot.end), 'hh:mm a')}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <select value={selectedDateTime} onChange={(event) => setSelectedDateTime(event.target.value)} style={inputStyle()}>
+                    {slotOptions.map((slot) => (
+                      <option key={slot.start} value={toDatetimeLocalValue(new Date(slot.start))}>
+                        {format(new Date(slot.start), "dd/MM/yyyy '·' hh:mm a")} → {format(new Date(slot.end), 'hh:mm a')}
+                      </option>
+                    ))}
+                  </select>
                 ) : (
-                  <div
-                    style={{
-                      padding: 14,
-                      borderRadius: 14,
-                      background: 'rgba(255,255,255,0.03)',
-                      color: 'var(--muted)',
-                      border: '1px dashed rgba(255,255,255,0.08)',
-                    }}
-                  >
-                    Consulta disponibilidad para ver opciones de horario aquí.
+                  <div style={{ padding: 14, borderRadius: 14, background: 'var(--card-soft)', color: 'var(--muted)', border: '1px dashed var(--card-border)' }}>
+                    Available slots will appear here.
                   </div>
                 )}
 
-                <label style={{ display: 'grid', gap: 6 }}>
-                  <span style={{ color: '#b5c0d8', fontSize: 14 }}>Paciente</span>
-                  <input
-                    value={form.name}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, name: event.target.value }))
-                    }
-                    placeholder="Nombre del paciente"
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      border: '1px solid var(--card-border)',
-                      background: 'var(--input-bg)',
-                      color: '#f3f7ff',
-                    }}
-                  />
-                </label>
+                <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Patient name" style={inputStyle()} />
+                <input value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} placeholder="Phone" style={inputStyle()} />
+                <input value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} placeholder="Email" style={inputStyle()} />
+                <textarea value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Notes" rows={4} style={{ ...inputStyle(), resize: 'vertical' }} />
 
-                <label style={{ display: 'grid', gap: 6 }}>
-                  <span style={{ color: '#b5c0d8', fontSize: 14 }}>Teléfono</span>
-                  <input
-                    value={form.phone}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, phone: event.target.value }))
-                    }
-                    placeholder="+52..."
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      border: '1px solid var(--card-border)',
-                      background: 'var(--input-bg)',
-                      color: '#f3f7ff',
-                    }}
-                  />
-                </label>
-
-                <label style={{ display: 'grid', gap: 6 }}>
-                  <span style={{ color: '#b5c0d8', fontSize: 14 }}>Email</span>
-                  <input
-                    value={form.email}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, email: event.target.value }))
-                    }
-                    placeholder="paciente@example.com"
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      border: '1px solid var(--card-border)',
-                      background: 'var(--input-bg)',
-                      color: '#f3f7ff',
-                    }}
-                  />
-                </label>
-
-                <label style={{ display: 'grid', gap: 6 }}>
-                  <span style={{ color: '#b5c0d8', fontSize: 14 }}>Notas</span>
-                  <textarea
-                    value={form.notes}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, notes: event.target.value }))
-                    }
-                    placeholder="Primera visita, dolor, seguimiento..."
-                    rows={4}
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      border: '1px solid var(--card-border)',
-                      background: 'var(--input-bg)',
-                      color: '#f3f7ff',
-                      resize: 'vertical',
-                    }}
-                  />
-                </label>
-
-                <button
-                  onClick={handleCreateAppointment}
-                  disabled={submitting}
-                  style={{
-                    padding: '14px 16px',
-                    borderRadius: 14,
-                    border: '1px solid rgba(76,175,80,0.34)',
-                    background: 'rgba(76,175,80,0.18)',
-                    color: '#f3f7ff',
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                  }}
-                >
-                  {submitting ? 'Guardando...' : 'Crear cita'}
+                <button onClick={handleCreateAppointment} disabled={submitting} style={{ ...softButtonStyle(), background: '#111827', color: '#fff', borderColor: '#111827', justifyContent: 'center' }}>
+                  {submitting ? 'Saving...' : 'Create appointment'}
                 </button>
               </div>
             </section>
 
             <section id="services" style={cardStyle()}>
-              <h2 style={{ fontSize: 24, marginBottom: 8 }}>Catálogo de servicios</h2>
+              <h2 style={{ fontSize: 22, marginBottom: 6 }}>Services</h2>
               <p style={{ color: 'var(--muted)', lineHeight: 1.6, marginBottom: 18 }}>
-                Duraciones activas del demo y muestra rápida de espacios.
+                Quick selection cards with preview slots for the next days.
               </p>
 
               <div style={{ display: 'grid', gap: 14 }}>
                 {availabilityByService.map(({ service, slots }) => (
-                  <article
-                    key={service.id}
-                    style={{
-                      padding: 16,
-                      borderRadius: 20,
-                      background: 'var(--card-soft)',
-                      border: '1px solid rgba(255,255,255,0.06)',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        gap: 12,
-                        marginBottom: 6,
-                      }}
-                    >
+                  <article key={service.id} style={{ padding: 16, borderRadius: 16, background: 'var(--card-soft)', border: '1px solid var(--card-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
                       <strong>{service.name}</strong>
-                      <span style={{ color: '#8ea0c7', fontSize: 14 }}>
-                        {service.durationMinutes} min
-                      </span>
+                      <span style={{ color: 'var(--muted)', fontSize: 14 }}>{service.durationMinutes} min</span>
                     </div>
-                    <p style={{ color: '#b5c0d8', lineHeight: 1.5, marginBottom: 10 }}>
+                    <p style={{ color: 'var(--muted)', lineHeight: 1.5, marginBottom: 10 }}>
                       {service.description ?? 'Sin descripción.'}
                     </p>
                     {slots.length === 0 ? (
-                      <p style={{ color: '#b5c0d8' }}>Sin slots detectados en los próximos 7 días.</p>
+                      <p style={{ color: 'var(--muted)' }}>No visible slots in the selected preview window.</p>
                     ) : (
-                      <ul style={{ display: 'grid', gap: 8, paddingLeft: 18, color: '#d7e2ff' }}>
+                      <ul style={{ display: 'grid', gap: 8, paddingLeft: 18, color: '#374151' }}>
                         {slots.map((slot) => (
                           <li key={slot.start}>
-                            {format(new Date(slot.start), "dd/MM '·' hh:mm a")} →{' '}
-                            {format(new Date(slot.end), 'hh:mm a')}
+                            {format(new Date(slot.start), "dd/MM '·' hh:mm a")} → {format(new Date(slot.end), 'hh:mm a')}
                           </li>
                         ))}
                       </ul>
                     )}
-                    <button
-                      onClick={() => {
-                        setSelectedServiceId(service.id);
-                        setMessage(`Servicio seleccionado: ${service.name}`);
-                      }}
-                      style={{
-                        marginTop: 12,
-                        padding: '10px 14px',
-                        borderRadius: 12,
-                        border: '1px solid rgba(115,149,255,0.34)',
-                        background: 'rgba(115,149,255,0.18)',
-                        color: '#f3f7ff',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Usar este servicio
+                    <button onClick={() => { setSelectedServiceId(service.id); setMessage(`Service selected: ${service.name}`); }} style={{ ...softButtonStyle(), marginTop: 12 }}>
+                      Use this service
                     </button>
                   </article>
                 ))}

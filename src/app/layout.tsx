@@ -19,10 +19,10 @@ export const metadata: Metadata = {
 };
 
 const navItems = [
-  { href: '#overview', label: 'Resumen', icon: '🏠' },
-  { href: '#appointments', label: 'Citas', icon: '📅' },
-  { href: '#booking', label: 'Nueva cita', icon: '➕' },
-  { href: '#services', label: 'Servicios', icon: '🦷' },
+  { href: '#overview', label: 'Overview', icon: '🏠' },
+  { href: '#appointments', label: 'Appointments', icon: '📅' },
+  { href: '#booking', label: 'New Booking', icon: '➕' },
+  { href: '#services', label: 'Services', icon: '🦷' },
 ];
 
 export default function RootLayout({
@@ -40,7 +40,7 @@ export default function RootLayout({
                 <div className="brand-mark">🦷</div>
                 <div>
                   <p className="brand-eyebrow">Dental La Molar</p>
-                  <strong className="brand-title">Assistant Demo</strong>
+                  <strong className="brand-title">Admin Dashboard</strong>
                 </div>
               </div>
 
@@ -57,7 +57,7 @@ export default function RootLayout({
           <div className="app-frame">
             <aside className="sidebar" aria-label="Sidebar de navegación">
               <div className="sidebar__card">
-                <p className="sidebar__eyebrow">Navegación</p>
+                <p className="sidebar__eyebrow">Core Navigation</p>
                 <nav className="sidebar__nav">
                   {navItems.map((item) => (
                     <a key={item.href} href={item.href} className="sidebar__link">
@@ -69,8 +69,8 @@ export default function RootLayout({
               </div>
 
               <div className="sidebar__card sidebar__card--muted">
-                <p className="sidebar__eyebrow">Estado</p>
-                <p className="sidebar__text">Demo dental en Fase 2.1 con panel interactivo.</p>
+                <p className="sidebar__eyebrow">Workspace</p>
+                <p className="sidebar__text">Dental assistant demo with real appointments core, usable admin flow and UX inspired by Volt.</p>
               </div>
             </aside>
 
