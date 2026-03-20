@@ -7,6 +7,7 @@ import {
   rescheduleAppointmentFromConversation,
   simpleAssistantReply,
 } from '@/lib/conversation-actions';
+import { listAvailableSlots } from '@/lib/appointments';
 import { prisma } from '@/lib/prisma';
 
 const model = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
@@ -78,8 +79,11 @@ export async function runDentalAssistant(contactId: string, userText: string) {
     'Responde siempre en español.',
     'Ayudas a agendar, reagendar y cancelar citas.',
     'Usa tools cuando necesites operar agenda o consultar contexto.',
-    'Si falta información, pide solo lo necesario.',
+    'Si el usuario ya menciona servicio y horario, intenta consultar disponibilidad o crear la cita.',
+    'Si el usuario pide reagendar o cancelar, intenta usar las tools correspondientes.',
+    'Si falta información, pide solo lo necesario y de forma breve.',
     'No inventes disponibilidad ni confirmaciones.',
+    'Si hay ambigüedad, ofrece opciones concretas basadas en servicios y horarios disponibles.',
   ].join(' ');
 
   const tools = [
@@ -94,6 +98,21 @@ export async function runDentalAssistant(contactId: string, userText: string) {
       name: 'get_services',
       description: 'Obtiene el catálogo de servicios disponibles.',
       parameters: { type: 'object', additionalProperties: false, properties: {} },
+    },
+    {
+      type: 'function',
+      name: 'get_available_slots',
+      description: 'Consulta horarios disponibles para un servicio dentro de una ventana de tiempo.',
+      parameters: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['serviceId', 'from', 'to'],
+        properties: {
+          serviceId: { type: 'string' },
+          from: { type: 'string', description: 'Fecha ISO-8601 inicial' },
+          to: { type: 'string', description: 'Fecha ISO-8601 final' },
+        },
+      },
     },
     {
       type: 'function',
@@ -205,6 +224,16 @@ export async function runDentalAssistant(contactId: string, userText: string) {
           durationMinutes: service.durationMinutes,
           description: service.description,
         }));
+      }
+
+      if (call.name === 'get_available_slots') {
+        const slots = await listAvailableSlots({
+          serviceId: String(args.serviceId),
+          from: new Date(String(args.from)),
+          to: new Date(String(args.to)),
+        });
+
+        result = slots.slice(0, 8);
       }
 
       if (call.name === 'create_appointment') {
