@@ -88,6 +88,7 @@ Implementado en esta fase:
 - cancelación de citas
 - reagendado de citas
 - endpoints API para disponibilidad y citas
+- panel inicial en `/` con lista de citas, catálogo de servicios y próximos slots
 
 ### Endpoints actuales
 
