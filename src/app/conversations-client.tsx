@@ -3,21 +3,23 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 
+type AppointmentItem = {
+  id: string;
+  status: string;
+  appointmentStart: string;
+  appointmentEnd: string;
+  service: {
+    id: string;
+    name: string;
+    durationMinutes: number;
+  } | null;
+};
+
 type Conversation = {
   id: string;
   name: string;
   phone: string;
-  appointments: {
-    id: string;
-    status: string;
-    appointmentStart: string;
-    appointmentEnd: string;
-    service: {
-      id: string;
-      name: string;
-      durationMinutes: number;
-    } | null;
-  }[];
+  appointments: AppointmentItem[];
   messages: {
     id: string;
     direction: 'INBOUND' | 'OUTBOUND';
@@ -44,6 +46,8 @@ export default function ConversationsClient({
   const [selectedId, setSelectedId] = useState(conversations[0]?.id ?? null);
   const [selectedServiceId, setSelectedServiceId] = useState(services[0]?.id ?? '');
   const [selectedDateTime, setSelectedDateTime] = useState('');
+  const [rescheduleDateTime, setRescheduleDateTime] = useState('');
+  const [rescheduleTargetId, setRescheduleTargetId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -52,6 +56,14 @@ export default function ConversationsClient({
     () => items.find((conversation) => conversation.id === selectedId) ?? null,
     [items, selectedId],
   );
+
+  function mergeConversationUpdate(contactId: string, updater: (conversation: Conversation) => Conversation) {
+    setItems((current) =>
+      current.map((conversation) =>
+        conversation.id === contactId ? updater(conversation) : conversation,
+      ),
+    );
+  }
 
   async function createAppointmentFromConversation() {
     if (!selectedConversation || !selectedServiceId || !selectedDateTime) {
@@ -64,7 +76,7 @@ export default function ConversationsClient({
     setStatusMessage(null);
 
     try {
-      const response = await fetch('/api/appointments', {
+      const response = await fetch(`/api/conversations/${selectedConversation.id}/appointments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -79,40 +91,141 @@ export default function ConversationsClient({
       });
 
       const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.error ?? 'No se pudo crear la cita.');
-      }
+      if (!response.ok) throw new Error(payload.error ?? 'No se pudo crear la cita.');
 
       const createdAppointment = payload.data;
-      setItems((current) =>
-        current.map((conversation) =>
-          conversation.id === selectedConversation.id
-            ? {
-                ...conversation,
-                appointments: [
-                  ...conversation.appointments,
-                  {
-                    id: createdAppointment.id,
-                    status: createdAppointment.status,
-                    appointmentStart: createdAppointment.appointmentStart,
-                    appointmentEnd: createdAppointment.appointmentEnd,
-                    service: createdAppointment.service
-                      ? {
-                          id: createdAppointment.service.id,
-                          name: createdAppointment.service.name,
-                          durationMinutes: createdAppointment.service.durationMinutes,
-                        }
-                      : null,
-                  },
-                ].sort((a, b) => a.appointmentStart.localeCompare(b.appointmentStart)),
-              }
-            : conversation,
-        ),
-      );
+      mergeConversationUpdate(selectedConversation.id, (conversation) => ({
+        ...conversation,
+        appointments: [
+          ...conversation.appointments,
+          {
+            id: createdAppointment.id,
+            status: createdAppointment.status,
+            appointmentStart: createdAppointment.appointmentStart,
+            appointmentEnd: createdAppointment.appointmentEnd,
+            service: createdAppointment.service
+              ? {
+                  id: createdAppointment.service.id,
+                  name: createdAppointment.service.name,
+                  durationMinutes: createdAppointment.service.durationMinutes,
+                }
+              : null,
+          },
+        ].sort((a, b) => a.appointmentStart.localeCompare(b.appointmentStart)),
+        messages: [
+          ...conversation.messages,
+          {
+            id: `local-${Date.now()}`,
+            direction: 'OUTBOUND',
+            channel: 'whatsapp',
+            message: `Listo. Tu cita quedó agendada para ${format(new Date(createdAppointment.appointmentStart), "dd/MM/yyyy '·' hh:mm a")}.`,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      }));
+
       setStatusMessage('Cita creada desde la conversación.');
       setSelectedDateTime('');
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : 'No se pudo crear la cita.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function cancelFromConversation(appointmentId: string) {
+    if (!selectedConversation) return;
+    if (!window.confirm('¿Cancelar esta cita desde conversaciones?')) return;
+
+    setSubmitting(true);
+    setError(null);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch(
+        `/api/conversations/${selectedConversation.id}/appointments/${appointmentId}`,
+        { method: 'DELETE' },
+      );
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? 'No se pudo cancelar la cita.');
+
+      mergeConversationUpdate(selectedConversation.id, (conversation) => ({
+        ...conversation,
+        appointments: conversation.appointments.map((appointment) =>
+          appointment.id === appointmentId ? { ...appointment, status: 'CANCELLED' } : appointment,
+        ),
+        messages: [
+          ...conversation.messages,
+          {
+            id: `local-cancel-${Date.now()}`,
+            direction: 'OUTBOUND',
+            channel: 'whatsapp',
+            message: 'Tu cita fue cancelada correctamente.',
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      }));
+
+      setStatusMessage('Cita cancelada desde la conversación.');
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : 'No se pudo cancelar.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function rescheduleFromConversation(appointmentId: string) {
+    if (!selectedConversation || !rescheduleDateTime) {
+      setError('Selecciona nueva fecha y hora para reagendar.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch(
+        `/api/conversations/${selectedConversation.id}/appointments/${appointmentId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appointmentStart: new Date(rescheduleDateTime).toISOString() }),
+        },
+      );
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? 'No se pudo reagendar la cita.');
+
+      const updated = payload.data;
+      mergeConversationUpdate(selectedConversation.id, (conversation) => ({
+        ...conversation,
+        appointments: conversation.appointments.map((appointment) =>
+          appointment.id === appointmentId
+            ? {
+                ...appointment,
+                status: updated.status,
+                appointmentStart: updated.appointmentStart,
+                appointmentEnd: updated.appointmentEnd,
+              }
+            : appointment,
+        ),
+        messages: [
+          ...conversation.messages,
+          {
+            id: `local-reschedule-${Date.now()}`,
+            direction: 'OUTBOUND',
+            channel: 'whatsapp',
+            message: `Tu cita fue reagendada para ${format(new Date(updated.appointmentStart), "dd/MM/yyyy '·' hh:mm a")}.`,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      }));
+
+      setRescheduleTargetId(null);
+      setRescheduleDateTime('');
+      setStatusMessage('Cita reagendada desde la conversación.');
+    } catch (rescheduleError) {
+      setError(rescheduleError instanceof Error ? rescheduleError.message : 'No se pudo reagendar.');
     } finally {
       setSubmitting(false);
     }
@@ -208,6 +321,17 @@ export default function ConversationsClient({
                       <div style={{ fontWeight: 700 }}>{appointment.service?.name ?? 'Sin servicio'}</div>
                       <div style={{ color: 'var(--muted)', marginTop: 6 }}>{format(new Date(appointment.appointmentStart), "dd/MM/yyyy '·' hh:mm a")}</div>
                       <div style={{ marginTop: 8, fontSize: 13, color: '#374151' }}>{appointment.status}</div>
+                      <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                        <button onClick={() => cancelFromConversation(appointment.id)} disabled={submitting} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(220,38,38,0.18)', background: 'rgba(220,38,38,0.06)', color: '#b91c1c', cursor: 'pointer' }}>Cancelar</button>
+                        {rescheduleTargetId === appointment.id ? (
+                          <>
+                            <input type="datetime-local" value={rescheduleDateTime} onChange={(event) => setRescheduleDateTime(event.target.value)} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--card-border)' }} />
+                            <button onClick={() => rescheduleFromConversation(appointment.id)} disabled={submitting} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #111827', background: '#111827', color: '#fff', cursor: 'pointer' }}>Guardar reagendado</button>
+                          </>
+                        ) : (
+                          <button onClick={() => { setRescheduleTargetId(appointment.id); setRescheduleDateTime(appointment.appointmentStart.slice(0, 16)); }} disabled={submitting} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--card-border)', background: '#fff', cursor: 'pointer' }}>Reagendar</button>
+                        )}
+                      </div>
                     </article>
                   ))}
                 </div>
