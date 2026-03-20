@@ -18,6 +18,13 @@ export const metadata: Metadata = {
   description: 'Panel demo para agenda dental con citas, disponibilidad y flujo interactivo.',
 };
 
+const navItems = [
+  { href: '#overview', label: 'Resumen', icon: '🏠' },
+  { href: '#appointments', label: 'Citas', icon: '📅' },
+  { href: '#booking', label: 'Nueva cita', icon: '➕' },
+  { href: '#services', label: 'Servicios', icon: '🦷' },
+];
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -37,16 +44,38 @@ export default function RootLayout({
                 </div>
               </div>
 
-              <nav className="topnav" aria-label="Navegación principal">
-                <a href="#overview">Resumen</a>
-                <a href="#appointments">Citas</a>
-                <a href="#booking">Nueva cita</a>
-                <a href="#services">Servicios</a>
+              <nav className="topnav" aria-label="Navegación principal superior">
+                {navItems.map((item) => (
+                  <a key={item.href} href={item.href}>
+                    {item.label}
+                  </a>
+                ))}
               </nav>
             </div>
           </header>
 
-          {children}
+          <div className="app-frame">
+            <aside className="sidebar" aria-label="Sidebar de navegación">
+              <div className="sidebar__card">
+                <p className="sidebar__eyebrow">Navegación</p>
+                <nav className="sidebar__nav">
+                  {navItems.map((item) => (
+                    <a key={item.href} href={item.href} className="sidebar__link">
+                      <span aria-hidden="true">{item.icon}</span>
+                      <span>{item.label}</span>
+                    </a>
+                  ))}
+                </nav>
+              </div>
+
+              <div className="sidebar__card sidebar__card--muted">
+                <p className="sidebar__eyebrow">Estado</p>
+                <p className="sidebar__text">Demo dental en Fase 2.1 con panel interactivo.</p>
+              </div>
+            </aside>
+
+            <div className="app-content">{children}</div>
+          </div>
         </div>
       </body>
     </html>

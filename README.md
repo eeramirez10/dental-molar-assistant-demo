@@ -90,7 +90,7 @@ Implementado en esta fase:
 - endpoints API para disponibilidad y citas
 - endpoint `GET /api/services` para catálogo activo
 - panel interactivo en `/` con lista de citas, catálogo, consulta de slots y formulario para crear/reagendar/cancelar citas
-- navbar superior, header del dashboard y mejoras de UX como filtros de citas, confirmación al cancelar y acciones de limpieza de formulario
+- navbar superior, sidebar de navegación, header del dashboard y mejoras de UX como filtros de citas, confirmación al cancelar y acciones de limpieza de formulario
 
 ### Endpoints actuales
 
