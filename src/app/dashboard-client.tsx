@@ -57,6 +57,16 @@ function toDatetimeLocalValue(date: Date) {
   return local.toISOString().slice(0, 16);
 }
 
+function cardStyle() {
+  return {
+    padding: 24,
+    borderRadius: 28,
+    background: 'var(--card)',
+    border: '1px solid var(--card-border)',
+    boxShadow: 'var(--shadow)',
+  } as const;
+}
+
 export default function DashboardClient({
   initialAppointments,
   services,
@@ -79,11 +89,23 @@ export default function DashboardClient({
   const [submitting, setSubmitting] = useState(false);
   const [rescheduleTargetId, setRescheduleTargetId] = useState<string | null>(null);
   const [rescheduleDateTime, setRescheduleDateTime] = useState(toDatetimeLocalValue(new Date()));
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [dateQuery, setDateQuery] = useState('');
 
   const selectedService = useMemo(
     () => services.find((service) => service.id === selectedServiceId) ?? null,
     [selectedServiceId, services],
   );
+
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter((appointment) => {
+      const matchesStatus = statusFilter === 'ALL' || appointment.status === statusFilter;
+      const matchesDate =
+        !dateQuery || appointment.appointmentStart.slice(0, 10) === dateQuery.trim();
+
+      return matchesStatus && matchesDate;
+    });
+  }, [appointments, dateQuery, statusFilter]);
 
   async function refreshAppointments() {
     const response = await fetch('/api/appointments', { cache: 'no-store' });
@@ -129,6 +151,7 @@ export default function DashboardClient({
       if (payload.data.length === 0) {
         setMessage('No encontré slots para esa ventana. Toca probar otra fecha.');
       } else {
+        setSelectedDateTime(toDatetimeLocalValue(new Date(payload.data[0].start)));
         setMessage('Slots cargados. Ya puedes escoger uno para crear la cita.');
       }
     } catch (fetchError) {
@@ -187,6 +210,10 @@ export default function DashboardClient({
   }
 
   async function handleCancelAppointment(appointmentId: string) {
+    if (!window.confirm('¿Cancelar esta cita?')) {
+      return;
+    }
+
     setError(null);
     setMessage(null);
 
@@ -245,122 +272,305 @@ export default function DashboardClient({
   }
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        background:
-          'radial-gradient(circle at top, rgba(72, 98, 170, 0.28), transparent 28%), #07111f',
-        color: '#f3f7ff',
-      }}
-    >
-      <section style={{ maxWidth: 1380, margin: '0 auto', padding: '56px 24px 72px' }}>
-        <div
+    <main style={{ minHeight: '100vh', color: 'var(--foreground)' }}>
+      <section style={{ maxWidth: 1380, margin: '0 auto', padding: '28px 24px 72px' }}>
+        <section
+          id="overview"
           style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            justifyContent: 'space-between',
-            gap: 20,
-            alignItems: 'flex-end',
-            marginBottom: 32,
+            ...cardStyle(),
+            marginBottom: 22,
+            padding: 32,
+            background:
+              'linear-gradient(135deg, rgba(115,149,255,0.18), rgba(12,23,42,0.92) 40%, rgba(12,23,42,0.96))',
           }}
         >
-          <div>
-            <div
-              style={{
-                display: 'inline-flex',
-                padding: '8px 14px',
-                borderRadius: 999,
-                background: 'rgba(115, 149, 255, 0.14)',
-                border: '1px solid rgba(115, 149, 255, 0.3)',
-                marginBottom: 18,
-                fontSize: 14,
-              }}
-            >
-              Dental La Molar · Demo panel interactivo
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 18,
+              flexWrap: 'wrap',
+              alignItems: 'flex-end',
+            }}
+          >
+            <div style={{ maxWidth: 820 }}>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  padding: '8px 14px',
+                  borderRadius: 999,
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  marginBottom: 18,
+                  fontSize: 14,
+                }}
+              >
+                Dental La Molar · Demo panel interactivo
+              </div>
+
+              <h1
+                style={{
+                  fontSize: 'clamp(2.3rem, 6vw, 4.4rem)',
+                  lineHeight: 0.96,
+                  marginBottom: 14,
+                }}
+              >
+                Agenda dental con navegación, header y mejor UX.
+              </h1>
+
+              <p style={{ maxWidth: 760, color: 'var(--muted)', fontSize: 18, lineHeight: 1.7 }}>
+                El panel ya se siente más app y menos experimento suelto: navegación superior,
+                resumen rápido, filtros para citas y flujo más cómodo para reservar.
+              </p>
             </div>
 
-            <h1 style={{ fontSize: 'clamp(2.4rem, 6vw, 4.6rem)', lineHeight: 0.96, marginBottom: 14 }}>
-              Agenda demo con alta, cancelación y reagendado.
-            </h1>
-
-            <p style={{ maxWidth: 840, color: '#b5c0d8', fontSize: 18, lineHeight: 1.7 }}>
-              Ahora sí ya puedes mover piezas desde la UI: consultar disponibilidad, crear citas y
-              reagendar/cancelar sin invocar a Postman como sacerdote del backend.
-            </p>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, minmax(150px, 1fr))',
+                gap: 14,
+                minWidth: 'min(100%, 520px)',
+              }}
+            >
+              <article style={{ ...cardStyle(), padding: 18, background: 'rgba(255,255,255,0.05)' }}>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>Citas</div>
+                <strong style={{ fontSize: 30 }}>{appointments.length}</strong>
+              </article>
+              <article style={{ ...cardStyle(), padding: 18, background: 'rgba(255,255,255,0.05)' }}>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>Servicios</div>
+                <strong style={{ fontSize: 30 }}>{services.length}</strong>
+              </article>
+              <article style={{ ...cardStyle(), padding: 18, background: 'rgba(255,255,255,0.05)' }}>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>Slots vistos</div>
+                <strong style={{ fontSize: 30 }}>{slotOptions.length}</strong>
+              </article>
+            </div>
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(160px, 1fr))', gap: 14, minWidth: 'min(100%, 360px)' }}>
-            <article style={{ padding: 18, borderRadius: 22, background: 'rgba(12, 23, 42, 0.88)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ fontSize: 13, color: '#8ea0c7', marginBottom: 8 }}>Citas</div>
-              <strong style={{ fontSize: 30 }}>{appointments.length}</strong>
-            </article>
-            <article style={{ padding: 18, borderRadius: 22, background: 'rgba(12, 23, 42, 0.88)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ fontSize: 13, color: '#8ea0c7', marginBottom: 8 }}>Servicios</div>
-              <strong style={{ fontSize: 30 }}>{services.length}</strong>
-            </article>
-          </div>
-        </div>
+        </section>
 
         {message ? (
-          <div style={{ marginBottom: 18, padding: 14, borderRadius: 16, background: 'rgba(76, 175, 80, 0.15)', border: '1px solid rgba(76, 175, 80, 0.3)' }}>
+          <div
+            style={{
+              marginBottom: 18,
+              padding: 14,
+              borderRadius: 16,
+              background: 'rgba(76, 175, 80, 0.15)',
+              border: '1px solid rgba(76, 175, 80, 0.3)',
+            }}
+          >
             {message}
           </div>
         ) : null}
         {error ? (
-          <div style={{ marginBottom: 18, padding: 14, borderRadius: 16, background: 'rgba(244, 67, 54, 0.15)', border: '1px solid rgba(244, 67, 54, 0.3)' }}>
+          <div
+            style={{
+              marginBottom: 18,
+              padding: 14,
+              borderRadius: 16,
+              background: 'rgba(244, 67, 54, 0.15)',
+              border: '1px solid rgba(244, 67, 54, 0.3)',
+            }}
+          >
             {error}
           </div>
         ) : null}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 20, alignItems: 'start' }}>
-          <section style={{ padding: 24, borderRadius: 28, background: 'rgba(12, 23, 42, 0.88)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1.35fr 1fr',
+            gap: 20,
+            alignItems: 'start',
+          }}
+        >
+          <section id="appointments" style={cardStyle()}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 14,
+                marginBottom: 18,
+                flexWrap: 'wrap',
+                alignItems: 'end',
+              }}
+            >
               <div>
                 <h2 style={{ fontSize: 24, marginBottom: 8 }}>Próximas citas</h2>
-                <p style={{ color: '#9db0d6', lineHeight: 1.6 }}>Agenda viva del demo.</p>
+                <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>
+                  Agenda viva del demo con filtros básicos.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span style={{ color: 'var(--muted)', fontSize: 13 }}>Estatus</span>
+                  <select
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value)}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: 12,
+                      border: '1px solid var(--card-border)',
+                      background: 'var(--input-bg)',
+                      color: 'var(--foreground)',
+                    }}
+                  >
+                    <option value="ALL">Todos</option>
+                    <option value="SCHEDULED">Programadas</option>
+                    <option value="RESCHEDULED">Reagendadas</option>
+                    <option value="CANCELLED">Canceladas</option>
+                    <option value="CONFIRMED">Confirmadas</option>
+                    <option value="COMPLETED">Completadas</option>
+                  </select>
+                </label>
+
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span style={{ color: 'var(--muted)', fontSize: 13 }}>Fecha</span>
+                  <input
+                    type="date"
+                    value={dateQuery}
+                    onChange={(event) => setDateQuery(event.target.value)}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: 12,
+                      border: '1px solid var(--card-border)',
+                      background: 'var(--input-bg)',
+                      color: 'var(--foreground)',
+                    }}
+                  />
+                </label>
               </div>
             </div>
 
             <div style={{ display: 'grid', gap: 14 }}>
-              {appointments.length === 0 ? (
-                <div style={{ padding: 18, borderRadius: 20, background: 'rgba(255,255,255,0.04)', color: '#b5c0d8' }}>
-                  No hay citas registradas todavía.
+              {filteredAppointments.length === 0 ? (
+                <div
+                  style={{
+                    padding: 18,
+                    borderRadius: 20,
+                    background: 'var(--card-soft)',
+                    color: '#b5c0d8',
+                  }}
+                >
+                  No hay citas que coincidan con tus filtros.
                 </div>
               ) : (
-                appointments.map((appointment) => (
-                  <article key={appointment.id} style={{ padding: 18, borderRadius: 22, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                filteredAppointments.map((appointment) => (
+                  <article
+                    key={appointment.id}
+                    style={{
+                      padding: 18,
+                      borderRadius: 22,
+                      background: 'var(--card-soft)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        flexWrap: 'wrap',
+                        marginBottom: 12,
+                      }}
+                    >
                       <div>
                         <h3 style={{ fontSize: 18, marginBottom: 4 }}>{appointment.contact.name}</h3>
                         <p style={{ color: '#8ea0c7' }}>{appointment.contact.phone}</p>
                       </div>
-                      <span style={{ alignSelf: 'start', padding: '8px 12px', borderRadius: 999, background: badgeColor(appointment.status), border: '1px solid rgba(255,255,255,0.08)', fontSize: 12, letterSpacing: 0.4 }}>
+                      <span
+                        style={{
+                          alignSelf: 'start',
+                          padding: '8px 12px',
+                          borderRadius: 999,
+                          background: badgeColor(appointment.status),
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          fontSize: 12,
+                          letterSpacing: 0.4,
+                        }}
+                      >
                         {appointment.status}
                       </span>
                     </div>
 
                     <div style={{ display: 'grid', gap: 6, color: '#d7e2ff', marginBottom: 14 }}>
-                      <div><strong>Servicio:</strong> {appointment.service?.name ?? 'Sin servicio'}</div>
-                      <div><strong>Inicio:</strong> {format(new Date(appointment.appointmentStart), "dd/MM/yyyy '·' hh:mm a")}</div>
-                      <div><strong>Fin:</strong> {format(new Date(appointment.appointmentEnd), "dd/MM/yyyy '·' hh:mm a")}</div>
-                      {appointment.notes ? <div><strong>Notas:</strong> {appointment.notes}</div> : null}
+                      <div>
+                        <strong>Servicio:</strong> {appointment.service?.name ?? 'Sin servicio'}
+                      </div>
+                      <div>
+                        <strong>Inicio:</strong>{' '}
+                        {format(new Date(appointment.appointmentStart), "dd/MM/yyyy '·' hh:mm a")}
+                      </div>
+                      <div>
+                        <strong>Fin:</strong>{' '}
+                        {format(new Date(appointment.appointmentEnd), "dd/MM/yyyy '·' hh:mm a")}
+                      </div>
+                      {appointment.notes ? (
+                        <div>
+                          <strong>Notas:</strong> {appointment.notes}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                      <button onClick={() => handleCancelAppointment(appointment.id)} style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(244,67,54,0.4)', background: 'rgba(244,67,54,0.14)', color: '#ffd6d6', cursor: 'pointer' }}>
+                      <button
+                        onClick={() => handleCancelAppointment(appointment.id)}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: 12,
+                          border: '1px solid rgba(244,67,54,0.4)',
+                          background: 'rgba(244,67,54,0.14)',
+                          color: '#ffd6d6',
+                          cursor: 'pointer',
+                        }}
+                      >
                         Cancelar
                       </button>
-                      <button onClick={() => {
-                        setRescheduleTargetId(appointment.id);
-                        setRescheduleDateTime(toDatetimeLocalValue(new Date(appointment.appointmentStart)));
-                      }} style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: '#f3f7ff', cursor: 'pointer' }}>
+                      <button
+                        onClick={() => {
+                          setRescheduleTargetId(appointment.id);
+                          setRescheduleDateTime(
+                            toDatetimeLocalValue(new Date(appointment.appointmentStart)),
+                          );
+                        }}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: 12,
+                          border: '1px solid rgba(255,255,255,0.12)',
+                          background: 'rgba(255,255,255,0.06)',
+                          color: '#f3f7ff',
+                          cursor: 'pointer',
+                        }}
+                      >
                         Reagendar
                       </button>
 
                       {rescheduleTargetId === appointment.id ? (
                         <>
-                          <input type="datetime-local" value={rescheduleDateTime} onChange={(event) => setRescheduleDateTime(event.target.value)} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.14)', background: '#091426', color: '#f3f7ff' }} />
-                          <button onClick={() => handleRescheduleAppointment(appointment.id)} disabled={submitting} style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(115,149,255,0.4)', background: 'rgba(115,149,255,0.18)', color: '#f3f7ff', cursor: 'pointer' }}>
+                          <input
+                            type="datetime-local"
+                            value={rescheduleDateTime}
+                            onChange={(event) => setRescheduleDateTime(event.target.value)}
+                            style={{
+                              padding: '10px 12px',
+                              borderRadius: 12,
+                              border: '1px solid rgba(255,255,255,0.14)',
+                              background: 'var(--input-bg)',
+                              color: '#f3f7ff',
+                            }}
+                          />
+                          <button
+                            onClick={() => handleRescheduleAppointment(appointment.id)}
+                            disabled={submitting}
+                            style={{
+                              padding: '10px 14px',
+                              borderRadius: 12,
+                              border: '1px solid rgba(115,149,255,0.4)',
+                              background: 'rgba(115,149,255,0.18)',
+                              color: '#f3f7ff',
+                              cursor: 'pointer',
+                            }}
+                          >
                             Guardar cambio
                           </button>
                         </>
@@ -373,83 +583,273 @@ export default function DashboardClient({
           </section>
 
           <div style={{ display: 'grid', gap: 20 }}>
-            <section style={{ padding: 24, borderRadius: 28, background: 'rgba(12, 23, 42, 0.88)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
-              <h2 style={{ fontSize: 24, marginBottom: 8 }}>Crear cita</h2>
-              <p style={{ color: '#9db0d6', lineHeight: 1.6, marginBottom: 18 }}>
-                Selecciona servicio, busca disponibilidad y agenda desde el panel.
-              </p>
+            <section id="booking" style={cardStyle()}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  alignItems: 'start',
+                  flexWrap: 'wrap',
+                  marginBottom: 18,
+                }}
+              >
+                <div>
+                  <h2 style={{ fontSize: 24, marginBottom: 8 }}>Crear cita</h2>
+                  <p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>
+                    Selecciona servicio, busca disponibilidad y agenda desde el panel.
+                  </p>
+                </div>
+                {selectedService ? (
+                  <span
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 999,
+                      background: 'rgba(115,149,255,0.16)',
+                      border: '1px solid rgba(115,149,255,0.32)',
+                      color: '#dce6ff',
+                      fontSize: 13,
+                    }}
+                  >
+                    Activo: {selectedService.name}
+                  </span>
+                ) : null}
+              </div>
 
               <div style={{ display: 'grid', gap: 12 }}>
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ color: '#b5c0d8', fontSize: 14 }}>Servicio</span>
-                  <select value={selectedServiceId} onChange={(event) => setSelectedServiceId(event.target.value)} style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', background: '#091426', color: '#f3f7ff' }}>
+                  <select
+                    value={selectedServiceId}
+                    onChange={(event) => {
+                      setSelectedServiceId(event.target.value);
+                      setSlotOptions([]);
+                    }}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: '1px solid var(--card-border)',
+                      background: 'var(--input-bg)',
+                      color: '#f3f7ff',
+                    }}
+                  >
                     <option value="">Selecciona un servicio</option>
                     {services.map((service) => (
-                      <option key={service.id} value={service.id}>{service.name}</option>
+                      <option key={service.id} value={service.id}>
+                        {service.name}
+                      </option>
                     ))}
                   </select>
                 </label>
 
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ color: '#b5c0d8', fontSize: 14 }}>Fecha para consultar slots</span>
-                  <input type="datetime-local" value={selectedDateTime} onChange={(event) => setSelectedDateTime(event.target.value)} style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', background: '#091426', color: '#f3f7ff' }} />
+                  <input
+                    type="datetime-local"
+                    value={selectedDateTime}
+                    onChange={(event) => setSelectedDateTime(event.target.value)}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: '1px solid var(--card-border)',
+                      background: 'var(--input-bg)',
+                      color: '#f3f7ff',
+                    }}
+                  />
                 </label>
 
-                <button onClick={fetchSlots} disabled={loadingSlots} style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid rgba(115,149,255,0.34)', background: 'rgba(115,149,255,0.18)', color: '#f3f7ff', cursor: 'pointer' }}>
-                  {loadingSlots ? 'Consultando slots...' : 'Consultar disponibilidad'}
-                </button>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button
+                    onClick={fetchSlots}
+                    disabled={loadingSlots}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: '1px solid rgba(115,149,255,0.34)',
+                      background: 'rgba(115,149,255,0.18)',
+                      color: '#f3f7ff',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {loadingSlots ? 'Consultando slots...' : 'Consultar disponibilidad'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setForm({ name: '', phone: '', email: '', notes: '' });
+                      setSlotOptions([]);
+                      setMessage(null);
+                      setError(null);
+                    }}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'rgba(255,255,255,0.04)',
+                      color: '#f3f7ff',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Limpiar formulario
+                  </button>
+                </div>
 
                 {slotOptions.length > 0 ? (
                   <label style={{ display: 'grid', gap: 6 }}>
                     <span style={{ color: '#b5c0d8', fontSize: 14 }}>Slot sugerido</span>
-                    <select value={selectedDateTime} onChange={(event) => setSelectedDateTime(event.target.value)} style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', background: '#091426', color: '#f3f7ff' }}>
+                    <select
+                      value={selectedDateTime}
+                      onChange={(event) => setSelectedDateTime(event.target.value)}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: 14,
+                        border: '1px solid var(--card-border)',
+                        background: 'var(--input-bg)',
+                        color: '#f3f7ff',
+                      }}
+                    >
                       {slotOptions.map((slot) => (
                         <option key={slot.start} value={toDatetimeLocalValue(new Date(slot.start))}>
-                          {format(new Date(slot.start), "dd/MM/yyyy '·' hh:mm a")} → {format(new Date(slot.end), 'hh:mm a')}
+                          {format(new Date(slot.start), "dd/MM/yyyy '·' hh:mm a")} →{' '}
+                          {format(new Date(slot.end), 'hh:mm a')}
                         </option>
                       ))}
                     </select>
                   </label>
-                ) : null}
+                ) : (
+                  <div
+                    style={{
+                      padding: 14,
+                      borderRadius: 14,
+                      background: 'rgba(255,255,255,0.03)',
+                      color: 'var(--muted)',
+                      border: '1px dashed rgba(255,255,255,0.08)',
+                    }}
+                  >
+                    Consulta disponibilidad para ver opciones de horario aquí.
+                  </div>
+                )}
 
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ color: '#b5c0d8', fontSize: 14 }}>Paciente</span>
-                  <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Nombre del paciente" style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', background: '#091426', color: '#f3f7ff' }} />
+                  <input
+                    value={form.name}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, name: event.target.value }))
+                    }
+                    placeholder="Nombre del paciente"
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: '1px solid var(--card-border)',
+                      background: 'var(--input-bg)',
+                      color: '#f3f7ff',
+                    }}
+                  />
                 </label>
 
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ color: '#b5c0d8', fontSize: 14 }}>Teléfono</span>
-                  <input value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} placeholder="+52..." style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', background: '#091426', color: '#f3f7ff' }} />
+                  <input
+                    value={form.phone}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, phone: event.target.value }))
+                    }
+                    placeholder="+52..."
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: '1px solid var(--card-border)',
+                      background: 'var(--input-bg)',
+                      color: '#f3f7ff',
+                    }}
+                  />
                 </label>
 
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ color: '#b5c0d8', fontSize: 14 }}>Email</span>
-                  <input value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} placeholder="paciente@example.com" style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', background: '#091426', color: '#f3f7ff' }} />
+                  <input
+                    value={form.email}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, email: event.target.value }))
+                    }
+                    placeholder="paciente@example.com"
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: '1px solid var(--card-border)',
+                      background: 'var(--input-bg)',
+                      color: '#f3f7ff',
+                    }}
+                  />
                 </label>
 
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ color: '#b5c0d8', fontSize: 14 }}>Notas</span>
-                  <textarea value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Primera visita, dolor, seguimiento..." rows={4} style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', background: '#091426', color: '#f3f7ff', resize: 'vertical' }} />
+                  <textarea
+                    value={form.notes}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, notes: event.target.value }))
+                    }
+                    placeholder="Primera visita, dolor, seguimiento..."
+                    rows={4}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: '1px solid var(--card-border)',
+                      background: 'var(--input-bg)',
+                      color: '#f3f7ff',
+                      resize: 'vertical',
+                    }}
+                  />
                 </label>
 
-                <button onClick={handleCreateAppointment} disabled={submitting} style={{ padding: '14px 16px', borderRadius: 14, border: '1px solid rgba(76,175,80,0.34)', background: 'rgba(76,175,80,0.18)', color: '#f3f7ff', cursor: 'pointer', fontWeight: 700 }}>
+                <button
+                  onClick={handleCreateAppointment}
+                  disabled={submitting}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: 14,
+                    border: '1px solid rgba(76,175,80,0.34)',
+                    background: 'rgba(76,175,80,0.18)',
+                    color: '#f3f7ff',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                  }}
+                >
                   {submitting ? 'Guardando...' : 'Crear cita'}
                 </button>
               </div>
             </section>
 
-            <section style={{ padding: 24, borderRadius: 28, background: 'rgba(12, 23, 42, 0.88)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <section id="services" style={cardStyle()}>
               <h2 style={{ fontSize: 24, marginBottom: 8 }}>Catálogo de servicios</h2>
-              <p style={{ color: '#9db0d6', lineHeight: 1.6, marginBottom: 18 }}>
+              <p style={{ color: 'var(--muted)', lineHeight: 1.6, marginBottom: 18 }}>
                 Duraciones activas del demo y muestra rápida de espacios.
               </p>
 
               <div style={{ display: 'grid', gap: 14 }}>
                 {availabilityByService.map(({ service, slots }) => (
-                  <article key={service.id} style={{ padding: 16, borderRadius: 20, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
+                  <article
+                    key={service.id}
+                    style={{
+                      padding: 16,
+                      borderRadius: 20,
+                      background: 'var(--card-soft)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        marginBottom: 6,
+                      }}
+                    >
                       <strong>{service.name}</strong>
-                      <span style={{ color: '#8ea0c7', fontSize: 14 }}>{service.durationMinutes} min</span>
+                      <span style={{ color: '#8ea0c7', fontSize: 14 }}>
+                        {service.durationMinutes} min
+                      </span>
                     </div>
                     <p style={{ color: '#b5c0d8', lineHeight: 1.5, marginBottom: 10 }}>
                       {service.description ?? 'Sin descripción.'}
@@ -460,23 +860,32 @@ export default function DashboardClient({
                       <ul style={{ display: 'grid', gap: 8, paddingLeft: 18, color: '#d7e2ff' }}>
                         {slots.map((slot) => (
                           <li key={slot.start}>
-                            {format(new Date(slot.start), "dd/MM '·' hh:mm a")} → {format(new Date(slot.end), 'hh:mm a')}
+                            {format(new Date(slot.start), "dd/MM '·' hh:mm a")} →{' '}
+                            {format(new Date(slot.end), 'hh:mm a')}
                           </li>
                         ))}
                       </ul>
                     )}
-                    <button onClick={() => setSelectedServiceId(service.id)} style={{ marginTop: 12, padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(115,149,255,0.34)', background: 'rgba(115,149,255,0.18)', color: '#f3f7ff', cursor: 'pointer' }}>
+                    <button
+                      onClick={() => {
+                        setSelectedServiceId(service.id);
+                        setMessage(`Servicio seleccionado: ${service.name}`);
+                      }}
+                      style={{
+                        marginTop: 12,
+                        padding: '10px 14px',
+                        borderRadius: 12,
+                        border: '1px solid rgba(115,149,255,0.34)',
+                        background: 'rgba(115,149,255,0.18)',
+                        color: '#f3f7ff',
+                        cursor: 'pointer',
+                      }}
+                    >
                       Usar este servicio
                     </button>
                   </article>
                 ))}
               </div>
-
-              {selectedService ? (
-                <p style={{ marginTop: 16, color: '#8ea0c7' }}>
-                  Servicio activo en el formulario: <strong style={{ color: '#f3f7ff' }}>{selectedService.name}</strong>
-                </p>
-              ) : null}
             </section>
           </div>
         </div>
