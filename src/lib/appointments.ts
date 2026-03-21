@@ -54,6 +54,17 @@ export type AvailableSlot = {
   end: string;
 };
 
+export type SlotFailureReason = 'past' | 'outside_business_hours' | 'blocked' | 'occupied';
+
+export type AppointmentRequestDiagnosis = {
+  ok: boolean;
+  reason?: SlotFailureReason;
+  businessHours?: {
+    startTime: string;
+    endTime: string;
+  };
+};
+
 export type AppointmentWithRelations = Appointment & {
   contact: Contact;
   service: Service | null;
@@ -72,10 +83,83 @@ async function getServiceOrThrow(serviceId: string) {
   const service = await prisma.service.findUnique({ where: { id: serviceId } });
 
   if (!service || !service.isActive) {
-    throw new DomainError('El servicio no existe o no está activo.', 404);
+    throw new DomainError('El servicio no existe o no está activo.', 404, {
+      code: 'SERVICE_NOT_FOUND',
+    });
   }
 
   return service;
+}
+
+export async function diagnoseAppointmentRequest({
+  serviceId,
+  appointmentStart,
+  ignoreAppointmentId,
+}: {
+  serviceId: string;
+  appointmentStart: Date;
+  ignoreAppointmentId?: string;
+}): Promise<AppointmentRequestDiagnosis> {
+  const service = await getServiceOrThrow(serviceId);
+  const appointmentEnd = addMinutes(appointmentStart, service.durationMinutes);
+
+  if (isBefore(appointmentStart, new Date())) {
+    return { ok: false, reason: 'past' };
+  }
+
+  const businessHour = await prisma.businessHour.findUnique({
+    where: { dayOfWeek: getDay(appointmentStart) },
+  });
+
+  if (!businessHour || !businessHour.isActive) {
+    return { ok: false, reason: 'outside_business_hours' };
+  }
+
+  const [startHour, startMinute] = businessHour.startTime.split(':').map(Number);
+  const [endHour, endMinute] = businessHour.endTime.split(':').map(Number);
+
+  const businessStart = new Date(appointmentStart);
+  businessStart.setHours(startHour, startMinute, 0, 0);
+
+  const businessEnd = new Date(appointmentStart);
+  businessEnd.setHours(endHour, endMinute, 0, 0);
+
+  if (appointmentStart < businessStart || appointmentEnd > businessEnd) {
+    return {
+      ok: false,
+      reason: 'outside_business_hours',
+      businessHours: {
+        startTime: businessHour.startTime,
+        endTime: businessHour.endTime,
+      },
+    };
+  }
+
+  const blockedSlots = await prisma.blockedSlot.findMany({
+    where: {
+      startDateTime: { lt: appointmentEnd },
+      endDateTime: { gt: appointmentStart },
+    },
+  });
+
+  if (blockedSlots.length > 0) {
+    return { ok: false, reason: 'blocked' };
+  }
+
+  const conflictingAppointment = await prisma.appointment.findFirst({
+    where: {
+      id: ignoreAppointmentId ? { not: ignoreAppointmentId } : undefined,
+      status: { in: ACTIVE_APPOINTMENT_STATUSES },
+      appointmentStart: { lt: appointmentEnd },
+      appointmentEnd: { gt: appointmentStart },
+    },
+  });
+
+  if (conflictingAppointment) {
+    return { ok: false, reason: 'occupied' };
+  }
+
+  return { ok: true };
 }
 
 async function ensureSlotAvailability({
@@ -89,54 +173,37 @@ async function ensureSlotAvailability({
 }) {
   const service = await getServiceOrThrow(serviceId);
   const appointmentEnd = addMinutes(appointmentStart, service.durationMinutes);
-
-  if (isBefore(appointmentStart, new Date())) {
-    throw new DomainError('No se puede agendar una cita en el pasado.');
-  }
-
-  const businessHour = await prisma.businessHour.findUnique({
-    where: { dayOfWeek: getDay(appointmentStart) },
+  const diagnosis = await diagnoseAppointmentRequest({
+    serviceId,
+    appointmentStart,
+    ignoreAppointmentId,
   });
 
-  if (!businessHour || !businessHour.isActive) {
-    throw new DomainError('No hay horario disponible para ese día.');
-  }
+  if (!diagnosis.ok) {
+    if (diagnosis.reason === 'past') {
+      throw new DomainError('No se puede agendar una cita en el pasado.', 400, {
+        code: 'APPOINTMENT_IN_PAST',
+      });
+    }
 
-  const [startHour, startMinute] = businessHour.startTime.split(':').map(Number);
-  const [endHour, endMinute] = businessHour.endTime.split(':').map(Number);
+    if (diagnosis.reason === 'outside_business_hours') {
+      throw new DomainError('La cita cae fuera del horario de atención.', 400, {
+        code: 'OUTSIDE_BUSINESS_HOURS',
+        details: diagnosis.businessHours,
+      });
+    }
 
-  const businessStart = new Date(appointmentStart);
-  businessStart.setHours(startHour, startMinute, 0, 0);
+    if (diagnosis.reason === 'blocked') {
+      throw new DomainError('Ese horario está bloqueado.', 409, {
+        code: 'BLOCKED_SLOT',
+      });
+    }
 
-  const businessEnd = new Date(appointmentStart);
-  businessEnd.setHours(endHour, endMinute, 0, 0);
-
-  if (appointmentStart < businessStart || appointmentEnd > businessEnd) {
-    throw new DomainError('La cita cae fuera del horario de atención.');
-  }
-
-  const blockedSlots = await prisma.blockedSlot.findMany({
-    where: {
-      startDateTime: { lt: appointmentEnd },
-      endDateTime: { gt: appointmentStart },
-    },
-  });
-
-  if (blockedSlots.length > 0) {
-    throw new DomainError('Ese horario está bloqueado.');
-  }
-
-  const conflictingAppointment = await prisma.appointment.findFirst({
-    where: {
-      id: ignoreAppointmentId ? { not: ignoreAppointmentId } : undefined,
-      status: { in: ACTIVE_APPOINTMENT_STATUSES },
-      appointmentStart: { lt: appointmentEnd },
-      appointmentEnd: { gt: appointmentStart },
-    },
-  });
-
-  if (conflictingAppointment) {
-    throw new DomainError('Ese horario ya no está disponible.');
+    if (diagnosis.reason === 'occupied') {
+      throw new DomainError('Ese horario ya no está disponible.', 409, {
+        code: 'SLOT_OCCUPIED',
+      });
+    }
   }
 
   return {
@@ -282,7 +349,9 @@ export async function cancelAppointment(appointmentId: string) {
   const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId } });
 
   if (!appointment) {
-    throw new DomainError('La cita no existe.', 404);
+    throw new DomainError('La cita no existe.', 404, {
+      code: 'APPOINTMENT_NOT_FOUND',
+    });
   }
 
   if (appointment.status === AppointmentStatus.CANCELLED) {
@@ -306,7 +375,9 @@ export async function rescheduleAppointment(
   const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId } });
 
   if (!appointment) {
-    throw new DomainError('La cita no existe.', 404);
+    throw new DomainError('La cita no existe.', 404, {
+      code: 'APPOINTMENT_NOT_FOUND',
+    });
   }
 
   const parsedInput = rescheduleAppointmentSchema.parse(input);
@@ -344,7 +415,11 @@ export function serializeError(error: unknown) {
   if (error instanceof DomainError) {
     return {
       status: error.statusCode,
-      body: { error: error.message },
+      body: {
+        error: error.message,
+        code: error.code,
+        details: error.details,
+      },
     };
   }
 

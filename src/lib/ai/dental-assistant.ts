@@ -7,7 +7,12 @@ import {
   rescheduleAppointmentFromConversation,
   simpleAssistantReply,
 } from '@/lib/conversation-actions';
-import { listAvailableSlots } from '@/lib/appointments';
+import {
+  diagnoseAppointmentRequest,
+  listAvailableSlots,
+  type AppointmentRequestDiagnosis,
+} from '@/lib/appointments';
+import { DomainError } from '@/lib/errors';
 import { prisma } from '@/lib/prisma';
 
 const model = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
@@ -36,6 +41,77 @@ function inferIntent(text: string) {
   if (normalized.includes('reagend') || normalized.includes('mover')) return 'reschedule';
   if (normalized.includes('agendar') || normalized.includes('cita')) return 'schedule';
   return 'unknown';
+}
+
+function formatHourLabel(time: string) {
+  const [hour, minute] = time.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hour, minute, 0, 0);
+
+  return date.toLocaleTimeString('es-MX', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+function formatSlotOptions(slots: Array<{ start: string }>) {
+  return slots
+    .slice(0, 3)
+    .map((slot) =>
+      new Date(slot.start).toLocaleString('es-MX', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }),
+    )
+    .join(', ');
+}
+
+function withTrailingPeriod(text: string) {
+  return /[.!?…]$/.test(text) ? text : `${text}.`;
+}
+
+function buildDeterministicFailureReply({
+  diagnosis,
+  serviceName,
+  suggestedSlots,
+}: {
+  diagnosis: AppointmentRequestDiagnosis;
+  serviceName: string;
+  suggestedSlots: Array<{ start: string }>;
+}) {
+  const optionsText = formatSlotOptions(suggestedSlots);
+  const optionsSuffix = optionsText
+    ? ` Te puedo ofrecer estas opciones: ${optionsText} ¿Cuál prefieres?`
+    : ' Si quieres, puedo buscarte otras opciones cercanas.';
+
+  if (diagnosis.reason === 'past') {
+    return `Ese horario ya pasó y no puedo agendar citas en el pasado.${optionsSuffix}`;
+  }
+
+  if (diagnosis.reason === 'outside_business_hours') {
+    const scheduleText = diagnosis.businessHours
+      ? ` Nuestro horario es de ${formatHourLabel(diagnosis.businessHours.startTime)} a ${formatHourLabel(
+          diagnosis.businessHours.endTime,
+        )}`
+      : '';
+
+    return `Ese horario está fuera de nuestro horario de atención.${scheduleText}${optionsSuffix}`;
+  }
+
+  if (diagnosis.reason === 'blocked') {
+    return `Ese horario no está disponible en este momento para ${serviceName}.${optionsSuffix}`;
+  }
+
+  if (diagnosis.reason === 'occupied') {
+    return `Ese horario ya está ocupado para ${serviceName}.${optionsSuffix}`;
+  }
+
+  return `No encontré disponible exactamente ese horario para ${serviceName}.${optionsSuffix}`;
 }
 
 async function createResponse(body: Record<string, unknown>) {
@@ -122,11 +198,17 @@ export async function runDentalAssistant(contactId: string, userText: string) {
     to.setDate(to.getDate() + 1);
 
     try {
-      const slots = await listAvailableSlots({
-        serviceId: inferredService.id,
-        from,
-        to,
-      });
+      const [diagnosis, slots] = await Promise.all([
+        diagnoseAppointmentRequest({
+          serviceId: inferredService.id,
+          appointmentStart: inferredDate,
+        }),
+        listAvailableSlots({
+          serviceId: inferredService.id,
+          from,
+          to,
+        }),
+      ]);
 
       const exactSlot = inferredHour
         ? slots.find((slot) => {
@@ -135,7 +217,7 @@ export async function runDentalAssistant(contactId: string, userText: string) {
           })
         : null;
 
-      if (exactSlot) {
+      if (diagnosis.ok && exactSlot) {
         const appointment = await createAppointmentFromConversation(contactId, {
           contact: {
             name: contact.name,
@@ -147,7 +229,15 @@ export async function runDentalAssistant(contactId: string, userText: string) {
           notes: 'Creada por preprocesamiento determinista',
         });
 
-        const reply = `Perfecto. Ya quedó agendada tu cita de ${appointment.service?.name ?? inferredService.name} para ${new Date(appointment.appointmentStart).toLocaleString('es-MX')}.`;
+        const appointmentLabel = new Date(appointment.appointmentStart).toLocaleString('es-MX', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+        const reply = `Perfecto. Ya quedó agendada tu cita de ${appointment.service?.name ?? inferredService.name} para ${appointmentLabel}.`;
 
         await appendConversationMessage({
           contactId,
@@ -158,9 +248,22 @@ export async function runDentalAssistant(contactId: string, userText: string) {
         return { reply, mode: 'deterministic-schedule' as const };
       }
 
-      if (slots.length > 0) {
-        const options = slots.slice(0, 3).map((slot) => new Date(slot.start).toLocaleString('es-MX')).join(', ');
-        const reply = `No encontré libre exactamente ese horario para ${inferredService.name}, pero sí tengo estas opciones: ${options}. ¿Cuál prefieres?`;
+      const reply = buildDeterministicFailureReply({
+        diagnosis,
+        serviceName: inferredService.name,
+        suggestedSlots: slots,
+      });
+
+      await appendConversationMessage({
+        contactId,
+        direction: ConversationDirection.OUTBOUND,
+        message: reply,
+      });
+
+      return { reply, mode: 'deterministic-slots' as const };
+    } catch (error) {
+      if (error instanceof DomainError) {
+        const reply = `${withTrailingPeriod('No pude revisar ese horario por un problema con la solicitud')} ${withTrailingPeriod(error.message)}`;
 
         await appendConversationMessage({
           contactId,
@@ -168,9 +271,9 @@ export async function runDentalAssistant(contactId: string, userText: string) {
           message: reply,
         });
 
-        return { reply, mode: 'deterministic-slots' as const };
+        return { reply, mode: 'deterministic-error' as const };
       }
-    } catch {
+
       // Si falla el flujo determinista, dejamos que OpenAI tome el control.
     }
   }
