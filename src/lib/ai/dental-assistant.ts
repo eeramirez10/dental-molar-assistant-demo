@@ -35,6 +35,19 @@ function extractHour(text: string) {
   return { hour, minute };
 }
 
+function extractAllHours(text: string) {
+  const matches = [...text.matchAll(/(?:a las|alas|a la|ala)\s*(\d{1,2})(?::(\d{2}))?/gi)];
+
+  return matches
+    .map((match) => {
+      const hour = Number(match[1]);
+      const minute = match[2] ? Number(match[2]) : 0;
+      if (Number.isNaN(hour) || hour > 23) return null;
+      return { hour, minute };
+    })
+    .filter((value): value is { hour: number; minute: number } => Boolean(value));
+}
+
 function inferIntent(text: string) {
   const normalized = text.toLowerCase();
   if (normalized.includes('cancel')) return 'cancel';
@@ -71,8 +84,39 @@ function formatSlotOptions(slots: Array<{ start: string }>) {
     .join(', ');
 }
 
+function formatAppointmentLabel(date: Date) {
+  return date.toLocaleString('es-MX', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
 function withTrailingPeriod(text: string) {
   return /[.!?…]$/.test(text) ? text : `${text}.`;
+}
+
+function serializeToolError(error: unknown) {
+  if (error instanceof DomainError) {
+    return {
+      error: error.message,
+      code: error.code,
+      details: error.details,
+    };
+  }
+
+  if (error instanceof Error) {
+    return {
+      error: error.message,
+    };
+  }
+
+  return {
+    error: 'Tool execution failed.',
+  };
 }
 
 function buildDeterministicFailureReply({
@@ -170,10 +214,12 @@ export async function runDentalAssistant(contactId: string, userText: string) {
   const normalizedText = userText.toLowerCase();
   const inferredService = serviceCatalog.find((service) => {
     const name = service.name.toLowerCase();
-    return normalizedText.includes(name) || name.split(' ').some((part) => part.length > 4 && normalizedText.includes(part));
+    return normalizedText.includes(name)
+      || name.split(' ').some((part) => part.length > 4 && normalizedText.includes(part));
   });
 
   const inferredHour = extractHour(userText);
+  const inferredHours = extractAllHours(userText);
   const inferredIntent = inferIntent(userText);
   const inferredDate = (() => {
     const base = new Date();
@@ -190,6 +236,90 @@ export async function runDentalAssistant(contactId: string, userText: string) {
     }
     return null;
   })();
+
+  const activeAppointments = contact.appointments.filter((appointment) =>
+    ['SCHEDULED', 'CONFIRMED', 'RESCHEDULED'].includes(appointment.status),
+  );
+
+  if (inferredIntent === 'cancel' && activeAppointments.length === 1) {
+    try {
+      const { message } = await cancelAppointmentFromConversation(
+        contactId,
+        activeAppointments[0].id,
+        { appendConfirmation: false },
+      );
+
+      await appendConversationMessage({
+        contactId,
+        direction: ConversationDirection.OUTBOUND,
+        message,
+      });
+
+      return { reply: message, mode: 'deterministic-cancel' as const };
+    } catch {
+      // Fall through to OpenAI tools.
+    }
+  }
+
+  if (inferredIntent === 'reschedule' && activeAppointments.length === 1 && inferredHours.length >= 2) {
+    const targetAppointment = activeAppointments[0];
+    const newHour = inferredHours[inferredHours.length - 1];
+    const requestedStart = new Date(targetAppointment.appointmentStart);
+    requestedStart.setHours(newHour.hour, newHour.minute, 0, 0);
+
+    try {
+      const [diagnosis, slots] = await Promise.all([
+        diagnoseAppointmentRequest({
+          serviceId: targetAppointment.serviceId ?? '',
+          appointmentStart: requestedStart,
+          ignoreAppointmentId: targetAppointment.id,
+        }),
+        listAvailableSlots({
+          serviceId: targetAppointment.serviceId ?? '',
+          from: new Date(new Date(requestedStart).setHours(0, 0, 0, 0)),
+          to: new Date(new Date(requestedStart).setHours(24, 0, 0, 0)),
+        }),
+      ]);
+
+      const exactSlot = slots.find((slot) => {
+        const start = new Date(slot.start);
+        return start.getHours() === newHour.hour && start.getMinutes() === newHour.minute;
+      });
+
+      if (diagnosis.ok && exactSlot) {
+        const { message } = await rescheduleAppointmentFromConversation(
+          contactId,
+          targetAppointment.id,
+          { appointmentStart: new Date(exactSlot.start) },
+          { appendConfirmation: false },
+        );
+
+        await appendConversationMessage({
+          contactId,
+          direction: ConversationDirection.OUTBOUND,
+          message,
+        });
+
+        return { reply: message, mode: 'deterministic-reschedule' as const };
+      }
+
+      const reply = buildDeterministicFailureReply({
+        diagnosis,
+        serviceName: targetAppointment.service?.name ?? 'tu cita',
+        suggestedSlots: slots,
+      });
+
+      await appendConversationMessage({
+        contactId,
+        direction: ConversationDirection.OUTBOUND,
+        message: reply,
+      });
+
+      return { reply, mode: 'deterministic-slots' as const };
+    } catch {
+      // Fall through to OpenAI tools.
+    }
+  }
 
   if (inferredIntent === 'schedule' && inferredService && inferredDate) {
     const from = new Date(inferredDate);
@@ -218,26 +348,22 @@ export async function runDentalAssistant(contactId: string, userText: string) {
         : null;
 
       if (diagnosis.ok && exactSlot) {
-        const appointment = await createAppointmentFromConversation(contactId, {
-          contact: {
-            name: contact.name,
-            phone: contact.phone,
-            email: contact.email ?? undefined,
+        const { appointment } = await createAppointmentFromConversation(
+          contactId,
+          {
+            contact: {
+              name: contact.name,
+              phone: contact.phone,
+              email: contact.email ?? undefined,
+            },
+            serviceId: inferredService.id,
+            appointmentStart: new Date(exactSlot.start),
+            notes: 'Creada por preprocesamiento determinista',
           },
-          serviceId: inferredService.id,
-          appointmentStart: new Date(exactSlot.start),
-          notes: 'Creada por preprocesamiento determinista',
-        });
+          { appendConfirmation: false },
+        );
 
-        const appointmentLabel = new Date(appointment.appointmentStart).toLocaleString('es-MX', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true,
-        });
-        const reply = `Perfecto. Ya quedó agendada tu cita de ${appointment.service?.name ?? inferredService.name} para ${appointmentLabel}.`;
+        const reply = `Perfecto. Ya quedó agendada tu cita de ${appointment.service?.name ?? inferredService.name} para ${formatAppointmentLabel(new Date(appointment.appointmentStart))}`;
 
         await appendConversationMessage({
           contactId,
@@ -273,8 +399,6 @@ export async function runDentalAssistant(contactId: string, userText: string) {
 
         return { reply, mode: 'deterministic-error' as const };
       }
-
-      // Si falla el flujo determinista, dejamos que OpenAI tome el control.
     }
   }
 
@@ -284,10 +408,13 @@ export async function runDentalAssistant(contactId: string, userText: string) {
     'Ayudas a agendar, reagendar y cancelar citas.',
     'Usa tools cuando necesites operar agenda o consultar contexto.',
     'Si el usuario ya menciona servicio y horario, intenta consultar disponibilidad o crear la cita.',
+    'Si el usuario pide cancelar una cita y solo tiene una próxima cita activa, cancélala sin pedir más datos.',
+    'Si el usuario pide reagendar una cita y solo tiene una próxima cita activa, úsala como objetivo y mueve la cita al nuevo horario si el usuario ya lo dio.',
     'Presta mucha atención a inferredIntent, inferredService e inferredDateTime cuando vengan en el contexto.',
     'Si el usuario pide reagendar o cancelar, intenta usar las tools correspondientes.',
     'Si falta información, pide solo lo necesario y de forma breve.',
     'No inventes disponibilidad ni confirmaciones.',
+    'Si una tool ya realizó la operación, tu respuesta final debe ser breve y consistente con esa acción; no pidas de nuevo datos ya resueltos.',
     'Si hay ambigüedad, ofrece opciones concretas basadas en servicios y horarios disponibles.',
   ].join(' ');
 
@@ -405,6 +532,8 @@ export async function runDentalAssistant(contactId: string, userText: string) {
     return { reply, mode: 'fallback-local' as const };
   }
 
+  let lastToolReply: string | null = null;
+
   for (let step = 0; step < 6; step += 1) {
     const functionCalls = (response.output || []).filter(
       (item: ToolCall) => item.type === 'function_call',
@@ -440,51 +569,85 @@ export async function runDentalAssistant(contactId: string, userText: string) {
       }
 
       if (call.name === 'get_available_slots') {
-        const slots = await listAvailableSlots({
-          serviceId: String(args.serviceId),
-          from: new Date(String(args.from)),
-          to: new Date(String(args.to)),
-        });
+        try {
+          const slots = await listAvailableSlots({
+            serviceId: String(args.serviceId),
+            from: new Date(String(args.from)),
+            to: new Date(String(args.to)),
+          });
 
-        result = slots.slice(0, 8);
+          result = slots.slice(0, 8);
+        } catch (error) {
+          result = serializeToolError(error);
+        }
       }
 
       if (call.name === 'create_appointment') {
-        const appointment = await createAppointmentFromConversation(contactId, {
-          contact: {
-            name: contact.name,
-            phone: contact.phone,
-            email: contact.email ?? undefined,
-          },
-          serviceId: String(args.serviceId),
-          appointmentStart: new Date(String(args.appointmentStart)),
-          notes: typeof args.notes === 'string' ? args.notes : 'Creada por asistente OpenAI',
-        });
+        try {
+          const { appointment, message } = await createAppointmentFromConversation(
+            contactId,
+            {
+              contact: {
+                name: contact.name,
+                phone: contact.phone,
+                email: contact.email ?? undefined,
+              },
+              serviceId: String(args.serviceId),
+              appointmentStart: new Date(String(args.appointmentStart)),
+              notes: typeof args.notes === 'string' ? args.notes : 'Creada por asistente OpenAI',
+            },
+            { appendConfirmation: false },
+          );
 
-        result = {
-          id: appointment.id,
-          status: appointment.status,
-          appointmentStart: appointment.appointmentStart.toISOString(),
-          service: appointment.service?.name,
-        };
+          lastToolReply = message;
+          result = {
+            id: appointment.id,
+            status: appointment.status,
+            appointmentStart: appointment.appointmentStart.toISOString(),
+            service: appointment.service?.name,
+            confirmationMessage: message,
+          };
+        } catch (error) {
+          result = serializeToolError(error);
+        }
       }
 
       if (call.name === 'cancel_appointment') {
-        const appointment = await cancelAppointmentFromConversation(contactId, String(args.appointmentId));
-        result = { id: appointment.id, status: appointment.status };
+        try {
+          const { appointment, message } = await cancelAppointmentFromConversation(
+            contactId,
+            String(args.appointmentId),
+            { appendConfirmation: false },
+          );
+          lastToolReply = message;
+          result = {
+            id: appointment.id,
+            status: appointment.status,
+            confirmationMessage: message,
+          };
+        } catch (error) {
+          result = serializeToolError(error);
+        }
       }
 
       if (call.name === 'reschedule_appointment') {
-        const appointment = await rescheduleAppointmentFromConversation(
-          contactId,
-          String(args.appointmentId),
-          { appointmentStart: new Date(String(args.appointmentStart)) },
-        );
-        result = {
-          id: appointment.id,
-          status: appointment.status,
-          appointmentStart: appointment.appointmentStart.toISOString(),
-        };
+        try {
+          const { appointment, message } = await rescheduleAppointmentFromConversation(
+            contactId,
+            String(args.appointmentId),
+            { appointmentStart: new Date(String(args.appointmentStart)) },
+            { appendConfirmation: false },
+          );
+          lastToolReply = message;
+          result = {
+            id: appointment.id,
+            status: appointment.status,
+            appointmentStart: appointment.appointmentStart.toISOString(),
+            confirmationMessage: message,
+          };
+        } catch (error) {
+          result = serializeToolError(error);
+        }
       }
 
       toolOutputs.push({
@@ -505,7 +668,7 @@ export async function runDentalAssistant(contactId: string, userText: string) {
     if (!response) break;
   }
 
-  const reply = (response.output_text || '').trim() || (await simpleAssistantReply(contactId, userText));
+  const reply = (response.output_text || '').trim() || lastToolReply || (await simpleAssistantReply(contactId, userText));
 
   await appendConversationMessage({
     contactId,

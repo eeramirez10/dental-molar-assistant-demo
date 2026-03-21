@@ -65,7 +65,7 @@ describe('dental assistant deterministic flow', () => {
   });
 
   it('explains when the requested slot is blocked', async () => {
-    const { limpieza, contact } = await seedCoreData();
+    const { contact } = await seedCoreData();
     const blockedStart = buildDate(1, 14);
 
     await prisma.blockedSlot.create({

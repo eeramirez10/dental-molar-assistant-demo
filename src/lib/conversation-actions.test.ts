@@ -18,7 +18,7 @@ describe('conversation appointment actions', () => {
     const { contact, limpieza } = await seedCoreData();
     const appointmentStart = buildDate(1, 11);
 
-    const appointment = await createAppointmentFromConversation(contact.id, {
+    const result = await createAppointmentFromConversation(contact.id, {
       contact: {
         name: contact.name,
         phone: contact.phone,
@@ -29,7 +29,8 @@ describe('conversation appointment actions', () => {
       notes: 'Creada en test',
     });
 
-    expect(appointment.service?.name).toBe('Limpieza dental');
+    expect(result.appointment.service?.name).toBe('Limpieza dental');
+    expect(result.message).toContain('Tu cita quedó agendada para');
 
     const messages = await prisma.conversationMessage.findMany({
       where: { contactId: contact.id },
@@ -59,9 +60,10 @@ describe('conversation appointment actions', () => {
       },
     });
 
-    const cancelled = await cancelAppointmentFromConversation(contact.id, appointment.id);
+    const result = await cancelAppointmentFromConversation(contact.id, appointment.id);
 
-    expect(cancelled.status).toBe(AppointmentStatus.CANCELLED);
+    expect(result.appointment.status).toBe(AppointmentStatus.CANCELLED);
+    expect(result.message).toContain('ha sido cancelada correctamente');
 
     const updated = await prisma.appointment.findUnique({ where: { id: appointment.id } });
     expect(updated?.status).toBe(AppointmentStatus.CANCELLED);
@@ -94,12 +96,13 @@ describe('conversation appointment actions', () => {
     });
 
     const newStart = buildDate(1, 16);
-    const rescheduled = await rescheduleAppointmentFromConversation(contact.id, appointment.id, {
+    const result = await rescheduleAppointmentFromConversation(contact.id, appointment.id, {
       appointmentStart: newStart,
     });
 
-    expect(rescheduled.status).toBe(AppointmentStatus.RESCHEDULED);
-    expect(rescheduled.appointmentStart.toISOString()).toBe(newStart.toISOString());
+    expect(result.appointment.status).toBe(AppointmentStatus.RESCHEDULED);
+    expect(result.appointment.appointmentStart.toISOString()).toBe(newStart.toISOString());
+    expect(result.message).toContain('Tu cita fue reagendada para');
 
     const messages = await prisma.conversationMessage.findMany({
       where: { contactId: contact.id },

@@ -6,10 +6,14 @@ import { runDentalAssistant } from '@/lib/ai/dental-assistant';
 import { appendConversationMessage } from '@/lib/conversation-actions';
 import { prisma } from '@/lib/prisma';
 
+function normalizePhone(input: string) {
+  return input.replace(/^whatsapp:/i, '').trim();
+}
+
 export async function POST(request: Request) {
   const payload = await request.json();
   const contactIdInput = String(payload.contactId ?? '');
-  const phone = String(payload.phone ?? '').trim();
+  const phone = normalizePhone(String(payload.phone ?? '').trim());
   const text = String(payload.text ?? '');
   const persistInbound = payload.persistInbound !== false;
 

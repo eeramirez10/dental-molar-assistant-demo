@@ -14,9 +14,22 @@ function formatAppointmentSummary(date: Date, serviceName?: string | null) {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-    hour: '2-digit',
+    hour: 'numeric',
     minute: '2-digit',
+    hour12: true,
   })}`;
+}
+
+export function buildAppointmentCreatedMessage(date: Date, serviceName?: string | null) {
+  return `Listo. Tu cita quedó agendada para ${formatAppointmentSummary(date, serviceName)}`;
+}
+
+export function buildAppointmentCancelledMessage(serviceName?: string | null) {
+  return `Tu cita ${serviceName ? `de ${serviceName} ` : ''}ha sido cancelada correctamente.`;
+}
+
+export function buildAppointmentRescheduledMessage(date: Date, serviceName?: string | null) {
+  return `Tu cita fue reagendada para ${formatAppointmentSummary(date, serviceName)}`;
 }
 
 export async function appendConversationMessage(input: {
@@ -38,53 +51,68 @@ export async function appendConversationMessage(input: {
 export async function createAppointmentFromConversation(
   contactId: string,
   input: CreateAppointmentInput,
+  options?: { appendConfirmation?: boolean },
 ) {
   const appointment = await createAppointment(input);
+  const message = buildAppointmentCreatedMessage(
+    appointment.appointmentStart,
+    appointment.service?.name,
+  );
 
-  await appendConversationMessage({
-    contactId,
-    direction: ConversationDirection.OUTBOUND,
-    message: `Listo. Tu cita quedó agendada para ${formatAppointmentSummary(
-      appointment.appointmentStart,
-      appointment.service?.name,
-    )}.`,
-  });
+  if (options?.appendConfirmation !== false) {
+    await appendConversationMessage({
+      contactId,
+      direction: ConversationDirection.OUTBOUND,
+      message,
+    });
+  }
 
-  return appointment;
+  return { appointment, message };
 }
 
-export async function cancelAppointmentFromConversation(contactId: string, appointmentId: string) {
+export async function cancelAppointmentFromConversation(
+  contactId: string,
+  appointmentId: string,
+  options?: { appendConfirmation?: boolean },
+) {
   const appointment = await cancelAppointment(appointmentId);
   const service = 'serviceId' in appointment && appointment.serviceId
     ? await prisma.service.findUnique({ where: { id: appointment.serviceId } })
     : null;
+  const message = buildAppointmentCancelledMessage(service?.name);
 
-  await appendConversationMessage({
-    contactId,
-    direction: ConversationDirection.OUTBOUND,
-    message: `Tu cita ${service ? `de ${service.name} ` : ''}ha sido cancelada correctamente.`,
-  });
+  if (options?.appendConfirmation !== false) {
+    await appendConversationMessage({
+      contactId,
+      direction: ConversationDirection.OUTBOUND,
+      message,
+    });
+  }
 
-  return appointment;
+  return { appointment, message };
 }
 
 export async function rescheduleAppointmentFromConversation(
   contactId: string,
   appointmentId: string,
   input: RescheduleAppointmentInput,
+  options?: { appendConfirmation?: boolean },
 ) {
   const appointment = await rescheduleAppointment(appointmentId, input);
+  const message = buildAppointmentRescheduledMessage(
+    appointment.appointmentStart,
+    appointment.service?.name,
+  );
 
-  await appendConversationMessage({
-    contactId,
-    direction: ConversationDirection.OUTBOUND,
-    message: `Tu cita fue reagendada para ${formatAppointmentSummary(
-      appointment.appointmentStart,
-      appointment.service?.name,
-    )}.`,
-  });
+  if (options?.appendConfirmation !== false) {
+    await appendConversationMessage({
+      contactId,
+      direction: ConversationDirection.OUTBOUND,
+      message,
+    });
+  }
 
-  return appointment;
+  return { appointment, message };
 }
 
 export async function simpleAssistantReply(contactId: string, inboundText: string) {
