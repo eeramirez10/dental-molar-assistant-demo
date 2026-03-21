@@ -16,5 +16,8 @@ export default defineConfig({
     pool: 'forks',
     singleFork: true,
     fileParallelism: false,
+    isolate: true,
+    maxWorkers: 1,
+    minWorkers: 1,
   },
 });
