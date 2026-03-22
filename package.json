@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "export DATABASE_URL=$(node -e \"const fs=require('fs'); const env=fs.readFileSync('.env','utf8'); const match=env.match(/^DATABASE_URL=\\\"?(.*)\\\"?$/m); if(!match){process.exit(1)} const url=new URL(match[1]); url.searchParams.set('schema','vitest'); process.stdout.write(url.toString())\") && prisma db push --skip-generate && vitest run",
+    "test:watch": "export DATABASE_URL=$(node -e \"const fs=require('fs'); const env=fs.readFileSync('.env','utf8'); const match=env.match(/^DATABASE_URL=\\\"?(.*)\\\"?$/m); if(!match){process.exit(1)} const url=new URL(match[1]); url.searchParams.set('schema','vitest'); process.stdout.write(url.toString())\") && prisma db push --skip-generate && vitest",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
@@ -16,19 +18,23 @@
     "@prisma/client": "^6.10.1",
     "date-fns": "^4.1.0",
     "next": "16.2.0",
+    "openai": "^6.32.0",
     "prisma": "^6.10.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.0",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.0"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

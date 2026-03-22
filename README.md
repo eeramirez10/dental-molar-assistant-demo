@@ -19,7 +19,7 @@ Demo de asistente de IA para Dental La Molar con enfoque en:
 
 ## Estado actual
 
-Fase 1: project setup
+Fase 1: project setup ✅ completada
 
 Incluye:
 
@@ -29,6 +29,18 @@ Incluye:
 - seed inicial para servicios y horario de 9 AM a 9 PM
 - `.env.example` con variables requeridas
 - estructura base para crecer con arquitectura limpia
+- utilidades base para Prisma y manejo de errores de dominio
+
+### Checklist de cierre de Fase 1
+
+- [x] Proyecto inicial con Next.js + TypeScript
+- [x] Prisma configurado para PostgreSQL/Neon
+- [x] Esquema inicial de datos para contactos, citas, servicios y conversación
+- [x] Seed inicial con servicios demo y horario de negocio
+- [x] `.env.example` documentado
+- [x] Landing/demo inicial
+- [x] Build de producción pasando
+- [x] Lint sin errores
 
 ## Primeros pasos
 
@@ -63,6 +75,54 @@ npm run db:seed
 ```bash
 npm run dev
 ```
+
+## Estado de Fase 2
+
+Fase 2: appointments core 🚧 en progreso
+
+Implementado en esta fase:
+
+- servicio de dominio para disponibilidad de citas
+- validación de slots contra horario, bloqueos y traslapes
+- creación de citas con upsert de contacto por teléfono
+- cancelación de citas
+- reagendado de citas
+- endpoints API para disponibilidad y citas
+- endpoint `GET /api/services` para catálogo activo
+- panel interactivo en `/` con lista de citas, catálogo, consulta de slots y formulario para crear/reagendar/cancelar citas
+- navbar superior, sidebar de navegación, header del dashboard y mejoras de UX como filtros de citas, confirmación al cancelar y acciones de limpieza de formulario
+- refresh visual del dashboard inspirado en Volt: layout admin más limpio, cards claras, overview con métricas y look & feel más SaaS/admin
+- sidebar reemplazado por una versión mucho más fiel al markup/estructura de Volt como primer paso para copiar los componentes tal cual
+
+### Endpoints actuales
+
+- `GET /api/availability?serviceId=<id>&from=<iso>&to=<iso>`
+- `GET /api/appointments`
+- `POST /api/appointments`
+- `PATCH /api/appointments/:appointmentId`
+- `DELETE /api/appointments/:appointmentId`
+
+### Payload base para crear cita
+
+```json
+{
+  "contact": {
+    "name": "Paciente Demo",
+    "phone": "+5215555555555",
+    "email": "demo@example.com"
+  },
+  "serviceId": "<service-id>",
+  "appointmentStart": "2026-03-20T16:00:00.000Z",
+  "notes": "Primera visita"
+}
+```
+
+### Siguiente tramo recomendado de Fase 2
+
+- agregar tests del dominio de agenda
+- exponer servicios y catálogo desde API
+- crear panel básico para consumir estos endpoints
+- preparar integración con WhatsApp/OpenAI sobre este core
 
 ## Notas
 
