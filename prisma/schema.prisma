@@ -43,6 +43,7 @@ model Contact {
   email                String?
   notes                String?
   conversationState    String?
+  assistantThreadId    String?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   appointments         Appointment[]
